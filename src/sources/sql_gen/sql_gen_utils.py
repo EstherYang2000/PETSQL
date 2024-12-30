@@ -37,69 +37,96 @@ TAB_EXACT_MATCH_FLAG = "TEM"
 
 
 def match_shift(q_col_match, q_tab_match, cell_match):
+    """
+    Adjusts and filters schema and cell matches based on priorities and overlaps.
 
-    q_id_to_match = collections.defaultdict(list)
+    Args:
+        q_col_match (dict): Matches between question IDs and column IDs with match types.
+        q_tab_match (dict): Matches between question IDs and table IDs with match types.
+        cell_match (dict): Matches between question IDs and cell values with match types.
+
+    Returns:
+        tuple: Processed dictionaries for column matches, table matches, and cell matches.
+    """
+    q_id_to_match = collections.defaultdict(list) # Map to group matches by question ID
+    # Populate q_id_to_match with column matches
     for match_key in q_col_match.keys():
-        q_id = int(match_key.split(',')[0])
-        c_id = int(match_key.split(',')[1])
-        type = q_col_match[match_key]
+        q_id = int(match_key.split(',')[0]) # Extract question ID
+        c_id = int(match_key.split(',')[1]) # Extract column ID
+        type = q_col_match[match_key] # Match type (e.g., exact or partial)
         q_id_to_match[q_id].append((type, c_id))
+    # Populate q_id_to_match with table matches
     for match_key in q_tab_match.keys():
-        q_id = int(match_key.split(',')[0])
-        t_id = int(match_key.split(',')[1])
-        type = q_tab_match[match_key]
+        q_id = int(match_key.split(',')[0]) # Extract question ID
+        t_id = int(match_key.split(',')[1]) # Extract table ID
+        type = q_tab_match[match_key] # Match type (e.g., exact or partial)
         q_id_to_match[q_id].append((type, t_id))
-    relevant_q_ids = list(q_id_to_match.keys())
-
+    relevant_q_ids = list(q_id_to_match.keys()) # List of question IDs with matches
+    # Determine priority of question IDs (based on number of matches)
     priority = []
     for q_id in q_id_to_match.keys():
-        q_id_to_match[q_id] = list(set(q_id_to_match[q_id]))
-        priority.append((len(q_id_to_match[q_id]), q_id))
-    priority.sort()
-    matches = []
-    new_q_col_match, new_q_tab_match = dict(), dict()
+        q_id_to_match[q_id] = list(set(q_id_to_match[q_id])) # Remove duplicate matches
+        priority.append((len(q_id_to_match[q_id]), q_id)) # Store number of matches and question ID
+    priority.sort() # Sort by number of matches (ascending)
+    matches = [] # List to keep track of resolved matches
+    new_q_col_match, new_q_tab_match = dict(), dict() # Dictionaries for processed column and table matches
     for _, q_id in priority:
+        # Check for overlap with already resolved matches
         if not list(set(matches) & set(q_id_to_match[q_id])):
             exact_matches = []
             for match in q_id_to_match[q_id]:
-                if match[0] in [COL_EXACT_MATCH_FLAG, TAB_EXACT_MATCH_FLAG]:
-                    exact_matches.append(match)
-            if exact_matches:
+                if match[0] in [COL_EXACT_MATCH_FLAG, TAB_EXACT_MATCH_FLAG]: 
+                    exact_matches.append(match) 
+            if exact_matches: # Prefer exact matches if available
                 res = exact_matches
             else:
                 res = q_id_to_match[q_id]
-            matches.extend(res)
+            matches.extend(res) # Add resolved matches to the list
         else:
-            res = list(set(matches) & set(q_id_to_match[q_id]))
+            res = list(set(matches) & set(q_id_to_match[q_id])) # Use overlapping matches if found
+        # Categorize resolved matches into column and table matches
         for match in res:
             type, c_t_id = match
             if type in [COL_PARTIAL_MATCH_FLAG, COL_EXACT_MATCH_FLAG]:
                 new_q_col_match[f'{q_id},{c_t_id}'] = type
             if type in [TAB_PARTIAL_MATCH_FLAG, TAB_EXACT_MATCH_FLAG]:
                 new_q_tab_match[f'{q_id},{c_t_id}'] = type
-
+    # Process remaining cell matches
     new_cell_match = dict()
     for match_key in cell_match.keys():
-        q_id = int(match_key.split(',')[0])
-        if q_id in relevant_q_ids:
+        q_id = int(match_key.split(',')[0]) # Extract question ID
+        if q_id in relevant_q_ids: # Skip if already processed
             continue
         # if cell_match[match_key] == CELL_EXACT_MATCH_FLAG:
-        new_cell_match[match_key] = cell_match[match_key]
+        new_cell_match[match_key] = cell_match[match_key] # Add to new cell match dictionary
 
     return new_q_col_match, new_q_tab_match, new_cell_match
 
 def mask_question_with_schema_linking(data_jsons, mask_tag, value_tag):
-    mask_questions = []
-    for data_json in data_jsons:
-        sc_link = data_json["sc_link"]
-        cv_link = data_json["cv_link"]
-        q_col_match = sc_link["q_col_match"]
-        q_tab_match = sc_link["q_tab_match"]
-        num_date_match = cv_link["num_date_match"]
-        cell_match = cv_link["cell_match"]
-        question_for_copying = data_json["question_for_copying"]
-        q_col_match, q_tab_match, cell_match = match_shift(q_col_match, q_tab_match, cell_match)
+    """
+    Masks tokens in a question based on schema and value linking information.
 
+    Args:
+        data_jsons (list): A list of JSON objects containing question and linking information.
+        mask_tag (str): The tag used to replace schema-related tokens.
+        value_tag (str): The tag used to replace value-related tokens.
+
+    Returns:
+        list: A list of questions with tokens masked as per the schema and value linking.
+    """
+    mask_questions = [] # List to store the masked questions
+    for data_json in data_jsons:
+        # Extract linking information from the JSON
+        sc_link = data_json["sc_link"]  # Schema linking information
+        cv_link = data_json["cv_link"]  # Cell value linking information
+        q_col_match = sc_link["q_col_match"]  # Question-column match IDs
+        q_tab_match = sc_link["q_tab_match"]  # Question-table match IDs
+        num_date_match = cv_link["num_date_match"]  # Numerical/date match IDs
+        cell_match = cv_link["cell_match"]  # Cell value match IDs
+        question_for_copying = data_json["question_for_copying"]  # Original question tokens
+
+        # Adjust match IDs to account for shifts (external function `match_shift` used here)
+        q_col_match, q_tab_match, cell_match = match_shift(q_col_match, q_tab_match, cell_match)
         def mask(question_toks, mask_ids, tag):
             new_question_toks = []
             for id, tok in enumerate(question_toks):
@@ -108,16 +135,19 @@ def mask_question_with_schema_linking(data_jsons, mask_tag, value_tag):
                 else:
                     new_question_toks.append(tok)
             return new_question_toks
-
+        # Extract token indices for value-based matching
         num_date_match_ids = [int(match.split(',')[0]) for match in num_date_match]
         cell_match_ids = [int(match.split(',')[0]) for match in cell_match]
-        value_match_q_ids = num_date_match_ids + cell_match_ids
-        question_toks = mask(question_for_copying, value_match_q_ids, value_tag)
-
+        value_match_q_ids = num_date_match_ids + cell_match_ids  # Combine value-related match IDs
+        # Mask the value-based tokens in the question
+        question_toks = mask(question_for_copying, value_match_q_ids, value_tag) 
+        # Extract token indices for schema-based matching
         q_col_match_ids = [int(match.split(',')[0]) for match in q_col_match]
         q_tab_match_ids = [int(match.split(',')[0]) for match in q_tab_match]
-        schema_match_q_ids = q_col_match_ids + q_tab_match_ids
+        schema_match_q_ids = q_col_match_ids + q_tab_match_ids # Combine schema-related match IDs
+        # Mask the schema-based tokens in the question
         question_toks = mask(question_toks, schema_match_q_ids, mask_tag)
+        # Combine the tokens back into a string and add to the result list
         mask_questions.append(" ".join(question_toks))
 
     return mask_questions

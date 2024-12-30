@@ -11,12 +11,12 @@ from sql_gen_utils import jaccard_similarity, mask_question_with_schema_linking,
 class BasicExampleSelector(object):
     def __init__(self):
         
-        with open("src/code_submit/dataset/ppl_train_other.json") as f:
+        with open("src/sources/dataset/ppl_train_other.json") as f:
             self.train_json = json.load(f)
         print(f"stored {len(self.train_json)} libray")
         self.train_questions = [sample['question'] for sample in self.train_json]
 
-        with jsonlines.open('src/code_submit/dataset/train_schema-linking.jsonl', 'r') as jsonl_f:
+        with jsonlines.open('src/sources/dataset/train_schema-linking.jsonl', 'r') as jsonl_f:
             self.train_schema_jsonl  = [obj for obj in jsonl_f]
         with jsonlines.open('test_schema-linking.jsonl', 'r') as jsonl_f:
             self.test_schema_jsonl  = [obj for obj in jsonl_f]
@@ -101,7 +101,7 @@ class EuclideanDistanceQuestionMaskSelector(BasicExampleSelector):
     def __init__(self, *args, **kwargs):
         super().__init__()
 
-        self.SELECT_MODEL = "./sentence_transformers"
+        self.SELECT_MODEL = "sentence-transformers/all-mpnet-base-v2"
         self.mask_token = "<mask>"  # the "<mask>" is the mask token of all-mpnet-base-v2
         self.value_token = "<unk>" # the "<unk>" is the unknown token of all-mpnet-base-v2
 

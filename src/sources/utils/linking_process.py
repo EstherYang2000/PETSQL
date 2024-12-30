@@ -98,7 +98,18 @@ def preprocess_schema_uncached(schema,
         for column in last_table.primary_keys
         for table in schema.tables
     ]
-
+    """
+    PreprocessedSchema(
+    column_names=[['<type: text>', '*'], ['<type: number>', 'stadium', 'id'], ['<type: text>', 'location'], ['<type: text>', 'name'], 
+    ['<type: number>', 'capacity'], ['<type: number>', 'high'], ['<type: number>', 'low'], ['<type: number>', 'average'], ['<type: number>', 'singer', 'id'], 
+    ['<type: text>', 'name'], ['<type: text>', 'country'], ['<type: text>', 'song', 'name'], ['<type: text>', 'song', 'release', 'year'], ['<type: number>', 'age'], 
+    ['<type: others>', 'be', 'male'], ['<type: number>', 'concert', 'id'], ['<type: text>', 'concert', 'name'], ['<type: text>', 'theme'], ['<type: text>', 'stadium', 'id'], 
+    ['<type: text>', 'year'], ['<type: number>', 'concert', 'id'], ['<type: text>', 'singer', 'id']], 
+    table_names=[['stadium'], ['singer'], ['concert'], ['singer', 'in', 'concert']], 
+    table_bounds=[1, 8, 15, 20, 22], column_to_table={'0': None, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 1, '9': 1, '10': 1, '11': 1, '12': 1, '13': 1, '14': 1, '15': 2, '16': 2, '17': 2, '18': 2, '19': 2, '20': 3, '21': 3}, 
+    table_to_columns={'0': [1, 2, 3, 4, 5, 6, 7], '1': [8, 9, 10, 11, 12, 13, 14], '2': [15, 16, 17, 18, 19], '3': [20, 21]}, foreign_keys={'18': 1, '20': 15, '21': 8}, 
+    foreign_keys_tables={'2': [0], '3': [1, 2]}, primary_keys=[1, 8, 15, 20], normalized_column_names=[], normalized_table_names=[])
+    """
     return r
 
 
@@ -141,45 +152,83 @@ class SpiderEncoderV2Preproc(abstract_preproc.AbstractPreproc):
 
     def add_item(self, item, schema, section, validation_info):
         preprocessed = self.preprocess_item(item, schema, validation_info)
+        print("----------------------preprocessed----------------------")
+        print(preprocessed)
         self.texts[section].append(preprocessed)
 
     def clear_items(self):
         self.texts = collections.defaultdict(list)
 
     def preprocess_item(self, item, schema, validation_info):
+        # Tokenize the question for processing and copying
         question, question_for_copying = self._tokenize_for_copying(item['question_toks'], item['question'])
+        # print("----------------------question----------------------")
+        # print(question) #['how', 'many', 'singer', 'do', 'we', 'have', '?']
+        # print("----------------------question_for_copying----------------------")
+        # print(question_for_copying) # ['how', 'many', 'singers', 'do', 'we', 'have', '?']
+        # Preprocess the schema to extract table and column names, foreign keys, and other metadata
         preproc_schema = self._preprocess_schema(schema)
+        # print("----------------------preproc_schema----------------------")
+        # print(preproc_schema)
+        # Compute schema linking (sc_link) if specified
+        # Schema linking matches the question tokens with table and column names in the schema
         if self.compute_sc_link:
+            # Ensure the column names have type information (starts with "<type:")
             assert preproc_schema.column_names[0][0].startswith("<type:")
+            # Remove type information from column names to simplify matching
             column_names_without_types = [col[1:] for col in preproc_schema.column_names]
+            # print("----------------------column_names_without_types----------------------")
+            # print(column_names_without_types)
+            # Compute schema linking between the question and column/table names
+            print("----------------------compute_schema_linking----------------------")
             sc_link = compute_schema_linking(question, column_names_without_types, preproc_schema.table_names)
+            # print("----------------------sc_link----------------------")
+            # print(sc_link) # {'q_col_match': {'2,8': 'CPM', '2,21': 'CPM'}, 'q_tab_match': {'2,1': 'TEM', '2,3': 'TPM'}}
+            
         else:
+            # If schema linking computation is disabled, use empty placeholders
             sc_link = {"q_col_match": {}, "q_tab_match": {}}
-
+        # Compute cell value linking (cv_link) if specified
+        # Cell value linking matches the question tokens with specific cell values in the database
         if self.compute_cv_link:
+            print("----------------------compute_cell_value_linking----------------------")
+            # print(question) # ['how', 'many', 'singer', 'do', 'we', 'have', '?']
             cv_link = compute_cell_value_linking(question, schema)
         else:
+            # If cell value linking computation is disabled, use empty placeholders
             cv_link = {"num_date_match": {}, "cell_match": {}}
+        # # Return a dictionary containing the preprocessed question and schema information
         return {
-            'raw_question': item['question'],
-            'db_id': schema.db_id,
-            'question': question,
-            'question_for_copying': question_for_copying,
+            'raw_question': item['question'],                # Original question text
+            'db_id': schema.db_id,                           # Database ID
+            'question': question,                            # Tokenized question for processing
+            'question_for_copying': question_for_copying,    # Tokenized question for copying
+
+            # Schema linking (sc_link) results showing matches between question tokens and schema elements
             'sc_link': sc_link,
+
+            # Cell value linking (cv_link) results showing matches between question tokens and cell values
             'cv_link': cv_link,
-            'columns': preproc_schema.column_names,
-            'tables': preproc_schema.table_names,
-            'table_bounds': preproc_schema.table_bounds,
-            'column_to_table': preproc_schema.column_to_table,
-            'table_to_columns': preproc_schema.table_to_columns,
-            'foreign_keys': preproc_schema.foreign_keys,
-            'foreign_keys_tables': preproc_schema.foreign_keys_tables,
-            'primary_keys': preproc_schema.primary_keys,
+
+            # Schema metadata processed and simplified for downstream tasks
+            'columns': preproc_schema.column_names,          # Column names in the schema
+            'tables': preproc_schema.table_names,            # Table names in the schema
+            'table_bounds': preproc_schema.table_bounds,     # Boundaries of tables within columns
+            'column_to_table': preproc_schema.column_to_table, # Mapping from columns to their respective tables
+            'table_to_columns': preproc_schema.table_to_columns, # Mapping from tables to their respective columns
+            'foreign_keys': preproc_schema.foreign_keys,     # Foreign key relationships
+            'foreign_keys_tables': preproc_schema.foreign_keys_tables, # Tables involved in foreign keys
+            'primary_keys': preproc_schema.primary_keys,     # Primary key columns
         }
+        
+        return {}
 
     def _preprocess_schema(self, schema):
         if schema.db_id in self.preprocessed_schemas:
             return self.preprocessed_schemas[schema.db_id]
+        print("----------------------preprocess_schema_uncached----------------------")
+        print(self.include_table_name_in_column) # False
+        print(self.fix_issue_16_primary_keys) # True
         result = preprocess_schema_uncached(schema, self._tokenize,
                                             self.include_table_name_in_column, self.fix_issue_16_primary_keys)
         self.preprocessed_schemas[schema.db_id] = result

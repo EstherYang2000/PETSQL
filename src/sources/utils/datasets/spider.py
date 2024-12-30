@@ -162,6 +162,8 @@ def load_tables(paths):
             assert db_id not in schemas
             schemas[db_id] = Schema(db_id, tables, columns, foreign_key_graph, schema_dict)
             # eval_foreign_key_maps[db_id] = build_foreign_key_map(schema_dict)
-
+    
+    # print(f"Loaded schema perpetrator")
+    # print(schemas["perpetrator"])
     return schemas, eval_foreign_key_maps
 
