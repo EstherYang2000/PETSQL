@@ -219,26 +219,28 @@ def extract_sql_3(text: str, from_4o: bool = False) -> str:
     # 若真的沒找到任何符合，就回傳原始文本或空字串都行
     return text.strip()
 
-with open(args.file, 'r', encoding='utf-8') as file:
-    content = file.readlines()
 
-print(len(content))
-# mid = extract_sql_from_text("\n".join(content))
-extracted_query = [sqlparse.format(extract_sql(q, "sensechat").strip(), reindent=False) for q in content]
+if __name__ == "__main__":
+    with open(args.file, 'r', encoding='utf-8') as file:
+        content = file.readlines()
 
-# extracted_query = [sqlparse.format(extract_sql(q, "sensechat").strip(), reindent=False) for q in extract_sql_from_text("\n".join(content))]
-# extracted_query = [
-#     sqlparse.format(extract_sql(q, "sensechat").strip(), reindent=False) + ";" 
-#     if not sqlparse.format(extract_sql(q, "sensechat").strip(), reindent=False).endswith(";")
-#     else sqlparse.format(extract_sql(q, "sensechat").strip(), reindent=False)
-#     for q in extract_sql_from_text("\n".join(content))
-# ]
-if args.output:
-    with open(args.output, 'w', encoding='utf-8') as file:
-        file.write('\n'.join(extracted_query))
-else:
-    with open(args.file.replace(".txt", "_out.txt") , 'w', encoding='utf-8') as file:
-        file.write('\n'.join(extracted_query))
+    print(len(content))
+    # mid = extract_sql_from_text("\n".join(content))
+    extracted_query = [sqlparse.format(extract_sql(q, "sensechat").strip(), reindent=False) for q in content]
+
+    # extracted_query = [sqlparse.format(extract_sql(q, "sensechat").strip(), reindent=False) for q in extract_sql_from_text("\n".join(content))]
+    # extracted_query = [
+    #     sqlparse.format(extract_sql(q, "sensechat").strip(), reindent=False) + ";" 
+    #     if not sqlparse.format(extract_sql(q, "sensechat").strip(), reindent=False).endswith(";")
+    #     else sqlparse.format(extract_sql(q, "sensechat").strip(), reindent=False)
+    #     for q in extract_sql_from_text("\n".join(content))
+    # ]
+    if args.output:
+        with open(args.output, 'w', encoding='utf-8') as file:
+            file.write('\n'.join(extracted_query))
+    else:
+        with open(args.file.replace(".txt", "_out.txt") , 'w', encoding='utf-8') as file:
+            file.write('\n'.join(extracted_query))
 
 
 #python src/sources/post_process.py --file src/sources/raw_codellama.txt --output src/sources/output_codellama.txt --llm codellama

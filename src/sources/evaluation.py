@@ -610,6 +610,62 @@ def evaluate(gold, predict, db_dir, etype, kmaps):
 
     print_scores(scores, etype)
 
+def evaluate_cc(gold, predict, db_dir, etype, kmaps):
+    # with open(gold) as f:
+    #     glist = [l.strip().split('\t') for l in f.readlines() if len(l.strip()) > 0]
+
+    # with open(predict) as f:
+    #     plist = [l.strip().split('\t') for l in f.readlines() if len(l.strip()) > 0]
+
+    evaluator = Evaluator()
+
+    levels = ['easy', 'medium', 'hard', 'extra', 'all']
+    entries = []
+
+    all_correct = True  # Track if all predictions are correct
+
+    for p, g in zip([predict], [gold]):
+        p_str = p[0]
+        g_str, db = g
+        db_name = db
+        db = os.path.join(db_dir, db, db + ".sqlite")
+        schema = Schema(get_schema(db))
+        g_sql = get_sql(schema, g_str)
+
+        try:
+            p_sql = get_sql(schema, p_str)
+        except:
+            # If p_sql is not valid, it is incorrect
+            all_correct = False
+            continue
+
+        # Rebuild SQL for value evaluation
+        kmap = kmaps[db_name]
+        g_valid_col_units = build_valid_col_units(g_sql['from']['table_units'], schema)
+        g_sql = rebuild_sql_val(g_sql)
+        g_sql = rebuild_sql_col(g_valid_col_units, g_sql, kmap)
+        p_valid_col_units = build_valid_col_units(p_sql['from']['table_units'], schema)
+        p_sql = rebuild_sql_val(p_sql)
+        p_sql = rebuild_sql_col(p_valid_col_units, p_sql, kmap)
+
+        if etype in ["all", "exec"]:
+            exec_score = eval_exec_match(db, p_str, g_str, p_sql, g_sql)
+            if not exec_score:
+                all_correct = False
+
+        if etype in ["all", "match"]:
+            exact_score = evaluator.eval_exact_match(p_sql, g_sql)
+            if exact_score == 0:
+                all_correct = False
+
+            entries.append({
+                'predictSQL': p_str,
+                'goldSQL': g_str,
+                'exact': exact_score,
+            })
+
+    return all_correct
+
 
 def eval_exec_match(db, p_str, g_str, pred, gold):
     """
@@ -876,3 +932,5 @@ if __name__ == "__main__":
     kmaps = build_foreign_key_map_from_json(table)
 
     evaluate(gold, pred, db_dir, etype, kmaps)
+    
+    evaluate_cc(gold, pred, db_dir, etype, kmaps)

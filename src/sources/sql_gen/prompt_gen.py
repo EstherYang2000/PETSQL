@@ -231,190 +231,47 @@ def formatting_prompt_sl(sample):
         )
     return prompt
 
-######################################################
-# Model initialization & inference
-######################################################
-def initialize_model():
-    """
-    Initializes the HF pipeline-based model in the main process.
-    """
-    global model_pipeline
-    if model_pipeline is None:
-        print("Initializing model...")
-        model_pipeline = pipeline(
-            "text-generation",
-            model="meta-llama/Llama-3.2-1B",
-            device_map="auto",
-            torch_dtype=torch.float16,
-            max_length=4096,
-        )
-        print("Model initialized successfully!")
+def prompt_generation(sample,dataset, kshot, select_type, sl, n,path_generate):
+    # 1) 讀取資料
+    if not sl:
+        input_data = gen_ppl_from_json(dataset, "puyu")
+    else:
+        with open(args.dataset, 'r', encoding='utf-8') as f:
+            input_data = json.load(f)
 
-
-def llmapi(prompt):
-    """
-    Worker function to generate a response for a given prompt using model_pipeline.
-    """
-    global model_pipeline
-    if model_pipeline is None:
-        raise RuntimeError("Model pipeline is not initialized.")
-    response = model_pipeline(prompt, max_length=50, num_return_sequences=1)
-    return response[0]["generated_text"]
-######################################################
-# Main function for SQL generation
-######################################################
-def run_sql_generation(model,
-                       input_data,
-                       out_file,
-                       k_shot=0,
-                       select_type="Euclidean_mask",
-                       pool_num=1,
-                       sl=False,
-                       n=5,
-                       gpt_version="o1-preview"):
-    """
-    主函式：根據使用者指定的 model 產生 SQL 查詢，並將輸出寫入 out_file。
-
-    :param model: str, 指定要使用哪個模型 (codellamaapi, puyuapi, llamaapi, sqlcoderapi, vicunaapi, gptapi)
-    :param input_data: list, 包含多筆需要生成 SQL 的問題資料
-    :param out_file: str, 輸出檔案路徑
-    :param k_shot: int, few-shot 數量
-    :param select_type: str, 用什麼方式選取範例 (ex. "Euclidean_mask")
-    :param pool_num: int, 多進程並行數量
-    :param sl: bool, 是否啟用 schema linking
-    :param n: int, 只處理前 n 筆資料
-    :param gpt_version: str, 使用 GPT 時的版本選擇
-    """
-    domain = False
-
-    # 讀取 K-shot 示例庫 (若 k_shot != 0)
-    if k_shot != 0:
+    if kshot != 0:
         examples_libary = get_examples_ins(select_type)
-        print(f"select type: {select_type}, k shot: {k_shot}")
-
-    # 初始化 LLM API
-    if model == "codellamaapi":
-        llm_instance = CodeLlama(
-            model_name="meta-llama/CodeLlama-7b-hf",
-            max_memory={"cpu": "4GiB", 0: "22GiB"}
-        )
-    elif model == "puyuapi":
-        llm_instance = Puyu()
-    elif model == "llamaapi":
-        # Llama3-OGSQL-8B
-        # meta-llama/Llama-3.2-1B
-        # OneGate/Llama3-OGSQL-FT-8B
-        # bstraehle/Meta-Llama-3.1-8B-text-to-sql
-        # ruslanmv/Meta-Llama-3.1-8B-Text-to-SQL
-        # cssupport/t5-small-awesome-text-to-sql
-        llm_instance = Llama2(
-            model_name="ruslanmv/Meta-Llama-3.1-8B-Text-to-SQL",
-            max_memory={"cpu": "4GiB", 0: "22GiB"}
-        )
-    elif model == "sqlcoderapi":
-        llm_instance = SQLCoder()
-    elif model == "vicunaapi":
-        llm_instance = vicuna()
-    elif model == "gptapi":
-        llm_instance = GPT(model=gpt_version)
+        print(f"select type: {select_type}, k shot: {kshot}")
     else:
-        raise Exception("No LLM selected!")
+        examples_libary = None
 
-    # 產生 prompts
+    # 2) 依照參數生成 prompt
     all_prompts = []
-    print('Generating prompts...')
-    output_file = "generated_prompts.txt"
-
-    with open(output_file, "w", encoding='utf-8') as f_out:
+    prompt_path = os.path.join(path_generate, "prompts.txt")
+    with open(prompt_path, "w", encoding='utf-8') as f_out:
+        # 3) 寫出 prompts 到檔案
         for i, sample in enumerate(input_data[:n]):
-            # 決定要用哪種 prompt 格式 (sl: schema linking or not)
-            prompt_target = formatting_prompt_sl(sample) if sl else formatting_prompt(sample)
-
-            if k_shot != 0:
-                # 擷取 k_shot 筆相似案例
-                examples = examples_libary.get_examples(sample, k_shot, cross_domain=domain)
-                prompt_example = [format_example(exm) for exm in examples]
-                prompt = get_example_prefix() + "\n\n".join(prompt_example + [prompt_target])
+            # schema linking or not
+            if args.sl:
+                prompt_target = formatting_prompt_sl(sample)
             else:
-                prompt = prompt_target
+                prompt_target = formatting_prompt(sample)
 
-            all_prompts.append(prompt)
-            f_out.write(prompt + "\n\n")
+            # 若要 few-shot
+            if examples_libary and kshot != 0:
+                examples = examples_libary.get_examples(sample, kshot, cross_domain=False)
+                prompt_example = [format_example(exm) for exm in examples]
+                prefix = get_example_prefix()
+                final_prompt = prefix + "\n\n".join(prompt_example + [prompt_target])
+            else:
+                final_prompt = prompt_target
+
+            all_prompts.append(final_prompt)
+            f_out.write(final_prompt + "\n\n\n\n")
+
+        print(f"Prompts generated and saved to: {prompt_path}")
+
     
-    print('Prompts generated!')
-
-    # 進行推理
-    results = []
-    if model == "gptapi":
-        # GPTAPI => 順序推理 (可能是OpenAI介面)
-        results = [llm_instance(p) for p in all_prompts]
-
-    elif model in ["llamaapi", "codellamaapi"]:
-        # 支援 batch generation
-        if model == "llamaapi":
-            batch_responses = llm_instance.generate_batch(
-                all_prompts,
-                temperature=0.2,
-                top_p=0.2,
-                max_new_tokens=150,
-                repetition_penalty=1.2,
-                do_sample=True,
-            )
-        else:  # codellamaapi
-            batch_responses = llm_instance.generate_batch(
-                all_prompts,
-                temperature=0.4,
-                top_p=0.9,
-                max_new_tokens=128,
-                repetition_penalty=1.05,
-                do_sample=True,
-                num_beams=1
-            )
-
-        print("Batch Responses:")
-        for i, res in enumerate(batch_responses, start=1):
-            print(f"{i}. {res}")
-            results.append(res)
-
-    else:
-        # 其餘的情況 => 預設 pipeline 方式 (平行 or 單線程)
-        initialize_model()
-        # 若要平行處理可啟用 mp.Pool(...)
-        # 這裡示範直接一次性 batch
-        # (或者改成: results = [llmapi(p) for p in all_prompts])
-        # 視實際需求調整
-
-        # print("Parallel processing with mp.Pool... (optional)")
-        # mp.set_start_method("spawn", force=True)
-        # with mp.Pool(pool_num) as pool:
-        #     results = pool.map(llmapi, all_prompts)
-
-        # 這裡示範簡易做法:
-        # results = [llmapi(p) for p in all_prompts]
-
-        # 或若 llm_instance 具備 batch 方法:
-        #   batch_responses = llm_instance.generate_batch(all_prompts, max_new_tokens=128)
-        #   for res in batch_responses:
-        #       results.append(res)
-        pass
-
-    # 若前面未真正產生 results, 可以在此處補上:
-    if not results:
-        # 如果你真的要呼叫 pipeline 來生成，可以這樣：
-        results = [llmapi(p) for p in all_prompts]
-
-    # 合併結果成字串
-    combined_result = '\n'.join(res.replace("\n", " ") for res in results)
-
-    # 紀錄 prompts (log)
-    with open(log_file_path, 'w', encoding='utf-8') as log_file:
-        print(f"Logging prompts to: {log_file_path}")
-        log_file.write("\n".join(all_prompts) + '\n')
-
-    # 輸出最終結果
-    with open(out_file, 'w', encoding='utf-8') as output_file:
-        print(f"Writing results to: {out_file}")
-        output_file.write(combined_result + '\n')
 
 
 if __name__ == '__main__':
@@ -424,10 +281,10 @@ if __name__ == '__main__':
 
     # 添加命令行选项
     parser.add_argument("--model", type=str, default="puyuapi") # codellamaapi, puyuapi, llamaapi, sqlcoderapi, vicunaapi, gptapi
-    parser.add_argument("--gpt_version", type=str, default="o1-preview",
+    parser.add_argument("--model_version", type=str, default="none",
                     help="Which GPT version to use with gptapi? Options: o1-preview, gpt-4, gpt-4o")
     parser.add_argument("--dataset", type=str, default="ppl_dev.json")
-    parser.add_argument("--out_file", type=str, default="raw.txt")
+    # parser.add_argument("--out_file", type=str, default="raw.txt")
     parser.add_argument("--kshot", type=int, default=3)
     parser.add_argument("--pool", type=int, default=1)
     parser.add_argument("--sl", action="store_true")
@@ -435,14 +292,11 @@ if __name__ == '__main__':
     # parser.add_argument("--max_seq_len", type=int, default=2048, help="The maximal length that LLM takes") # Larger lengths may include more context but risk exceeding model limits.
     # parser.add_argument("--max_ans_len", type=int, default=200, help="The maximal length that an answer takes") # Sets the maximum token length for the LLM-generated answer.
     parser.add_argument("--n", type=int, default=5, help="Size of self-consistent set") # 自洽集的大小
-
-    # python src/sources/sql_gen/main.py --model "llamaapi" --kshot 9 --pool 1  --out_file src/sources/raw.txt --select_type Euclidean_mask
-
     # 解析命令行参数
     args = parser.parse_args()
     # Construct the log directory and file path
     log_dir = os.path.join(os.path.dirname(__file__), "logs")
-    log_file_path = os.path.join(log_dir, f"{args.model}_{args.select_type}.log")
+    log_file_path = os.path.join(log_dir, f"{args.model}_{args.model_version}_{args.select_type}.log")
 
     # Create the logs directory if it does not exist
     if not os.path.exists(log_dir):
@@ -456,17 +310,22 @@ if __name__ == '__main__':
         input_data = gen_ppl_from_json(args.dataset, args.model[:-3])
     else:
         input_data = json.load(open(args.dataset, 'r'))
-    # Specify the output file path
-    # output_file_path = "output_data.json"  # Change the file name/path as needed
-    # Save `input_data` to a JSON file
-    # with open(output_file_path, 'w') as outfile:
-    #     json.dump(input_data, outfile, indent=4)  # indent=4 for readable formatting
-    
     path_generate = f"data/process/{args.dataset.upper()}-{args.kshot}_SHOT_{args.select_type}_{args.n}"
     os.makedirs(path_generate, exist_ok=True)
     json.dump(input_data, open(os.path.join(path_generate, "questions.json"), "w"), indent=4)
     print(f"Input data has been saved to {path_generate}")
     print("schema linking: ", args.sl)
     print(args.dataset)
-    run_sql_generation(args.model, input_data, args.out_file, args.kshot,
-                       args.select_type, args.pool, args.sl, args.n,args.gpt_version)
+    prompt_generation(input_data, args.dataset,args.kshot, args.select_type, args.sl, args.n,path_generate)
+
+    
+# python prompt_gen.py \
+#   --dataset ppl_dev.json \
+#   --out_prompt_file generated_prompts.txt \
+#   --n 5 \
+#   --kshot 3 \
+#   --select_type Euclidean_mask \
+#   --sl
+
+# python src/sources/sql_gen/prompt_gen.py --model "llamaapi" --kshot 9 --pool 1 --select_type Euclidean_mask --n 5
+
