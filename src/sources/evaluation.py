@@ -631,11 +631,13 @@ def evaluate_cc(gold, predict, db_dir, etype, kmaps):
         db = os.path.join(db_dir, db, db + ".sqlite")
         schema = Schema(get_schema(db))
         g_sql = get_sql(schema, g_str)
-
+        print("g_sql:{}".format(g_sql))
         try:
             p_sql = get_sql(schema, p_str)
-        except:
+            print("p_sql:{}".format(p_sql))
+        except Exception as e:
             # If p_sql is not valid, it is incorrect
+            print(f"Error parsing SQL: {e}")
             all_correct = False
             continue
 
@@ -655,6 +657,7 @@ def evaluate_cc(gold, predict, db_dir, etype, kmaps):
 
         if etype in ["all", "match"]:
             exact_score = evaluator.eval_exact_match(p_sql, g_sql)
+            print("exact_score:{}".format(exact_score))
             if exact_score == 0:
                 all_correct = False
 
@@ -672,27 +675,60 @@ def eval_exec_match(db, p_str, g_str, pred, gold):
     return 1 if the values between prediction and gold are matching
     in the corresponding index. Currently not support multiple col_unit(pairs).
     """
-    conn = sqlite3.connect(db)
-    cursor = conn.cursor()
+    # conn = sqlite3.connect(db)
+    # cursor = conn.cursor()
+    # try:
+    #     cursor.execute(p_str)
+    #     p_res = cursor.fetchall()
+    # except:
+    #     return False
+
+    # cursor.execute(g_str)
+    # q_res = cursor.fetchall()
+
+    # def res_map(res, val_units):
+    #     rmap = {}
+    #     for idx, val_unit in enumerate(val_units):
+    #         key = tuple(val_unit[1]) if not val_unit[2] else (val_unit[0], tuple(val_unit[1]), tuple(val_unit[2]))
+    #         rmap[key] = [r[idx] for r in res]
+    #     return rmap
+
+    # p_val_units = [unit[1] for unit in pred['select'][1]]
+    # q_val_units = [unit[1] for unit in gold['select'][1]]
+    # return res_map(p_res, p_val_units) == res_map(q_res, q_val_units)
     try:
-        cursor.execute(p_str)
-        p_res = cursor.fetchall()
-    except:
+        with sqlite3.connect(db) as conn:
+            cursor = conn.cursor()
+            
+            # Execute predicted query
+            try:
+                cursor.execute(p_str)
+                p_res = cursor.fetchall()
+            except sqlite3.OperationalError as e:
+                print(f"Error executing predicted query: {e}")
+                return False
+            
+            # Execute gold query
+            cursor.execute(g_str)
+            q_res = cursor.fetchall()
+        
+        # Helper to map results to value units
+        def res_map(res, val_units):
+            rmap = {}
+            for idx, val_unit in enumerate(val_units):
+                key = tuple(val_unit[1]) if not val_unit[2] else (val_unit[0], tuple(val_unit[1]), tuple(val_unit[2]))
+                rmap[key] = [r[idx] for r in res]
+            return rmap
+
+        # Extract value units
+        p_val_units = [unit[1] for unit in pred['select'][1]]
+        q_val_units = [unit[1] for unit in gold['select'][1]]
+
+        # Compare mapped results
+        return res_map(p_res, p_val_units) == res_map(q_res, q_val_units)
+    except Exception as e:
+        print(f"Unexpected error: {e}")
         return False
-
-    cursor.execute(g_str)
-    q_res = cursor.fetchall()
-
-    def res_map(res, val_units):
-        rmap = {}
-        for idx, val_unit in enumerate(val_units):
-            key = tuple(val_unit[1]) if not val_unit[2] else (val_unit[0], tuple(val_unit[1]), tuple(val_unit[2]))
-            rmap[key] = [r[idx] for r in res]
-        return rmap
-
-    p_val_units = [unit[1] for unit in pred['select'][1]]
-    q_val_units = [unit[1] for unit in gold['select'][1]]
-    return res_map(p_res, p_val_units) == res_map(q_res, q_val_units)
 
 
 # Rebuild SQL functions for value evaluation
@@ -904,7 +940,7 @@ def build_foreign_key_map_from_json(table):
 """
 python src/sources/evaluation.py \
 --gold ./data/spider/dev_gold.sql  \
---pred ./src/sources/output_gpt_1.txt \
+--pred /home/yyj/Desktop/yyj/thesis/code/PETSQL/data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034/phind-codellam_api_output.txt \
 --etype all \
 --db ./data/spider/database \
 --table ./data/spider/tables.json \
@@ -933,4 +969,4 @@ if __name__ == "__main__":
 
     evaluate(gold, pred, db_dir, etype, kmaps)
     
-    evaluate_cc(gold, pred, db_dir, etype, kmaps)
+    # evaluate_cc(gold, pred, db_dir, etype, kmaps)

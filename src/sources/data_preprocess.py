@@ -118,7 +118,7 @@ def add_fk(ppl_test):
 
 
 
-def gen_ppl_from_json(ppl_filename='data/ppl_dev.json', model=None):
+def gen_ppl_from_json(ppl_filename='data/ppl_dev.json'):
     # Load database table information and development dataset
     print("Loading data...")
     print(proj_dir)

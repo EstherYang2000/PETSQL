@@ -204,7 +204,7 @@ if __name__ == "__main__":
     try:
         # Initialize the Llama2 class
         llama = Llama2(
-            model_name="gaussalgo/T5-LM-Large-text2sql-spider",
+            model_name="TheBloke/deepseek-coder-6.7B-instruct-GGUF",
             max_memory={"cpu": "4GiB", 0: "22GiB"},
         )
 

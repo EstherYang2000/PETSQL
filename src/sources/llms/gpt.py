@@ -42,24 +42,31 @@ class GPT:
         Returns:
             str: The generated response.
         """
+        if not prompt or prompt.strip() == "":
+            raise ValueError("Prompt cannot be None or empty")
         use_model = model if model else self.model
         client = self.client
         
-        # 呼叫 ChatCompletion API
-        response = client.chat.completions.create(
-            model=use_model,
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            temperature=temperature,
-            max_tokens=max_tokens,
-            **kwargs
-        )
-        result = response.choices[0].message.content
-        print(f"Prompt: {prompt}")
-        print(f"Model: {use_model}")
-        print(f"Result: {result}")
-        return result
+        try:
+            # Call ChatCompletion API
+            response = client.chat.completions.create(
+                model=use_model,
+                messages=[
+                    {"role": "user", "content": str(prompt)}  # Ensure prompt is string
+                ],
+                temperature=temperature,
+                max_tokens=max_tokens,
+                **kwargs
+            )
+            result = response.choices[0].message.content
+            print(f"Prompt: {prompt}")
+            print(f"Model: {use_model}")
+            print(f"Result: {result}")
+            return result
+            
+        except Exception as e:
+            print(f"Error calling OpenAI API: {str(e)}")
+            raise
 
     def batch_generate(
         self,

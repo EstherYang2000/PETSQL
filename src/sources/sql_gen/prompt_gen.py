@@ -1,14 +1,9 @@
 import json
 import logging
 import os
-import re
 import sys
 import argparse
 import sqlite3
-import torch
-import torch.multiprocessing as mp
-
-from transformers import pipeline
 from tqdm import tqdm
 
 # 根據專案結構做路徑調整
@@ -19,7 +14,6 @@ sys.path.append(proj_dir)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # 專案內部匯入
-from llms import CodeLlama, Puyu, Llama2, SQLCoder, vicuna, GPT
 from get_example_modules import get_examples_ins
 from data_preprocess import gen_ppl_from_json
 
@@ -234,7 +228,7 @@ def formatting_prompt_sl(sample):
 def prompt_generation(sample,dataset, kshot, select_type, sl, n,path_generate):
     # 1) 讀取資料
     if not sl:
-        input_data = gen_ppl_from_json(dataset, "puyu")
+        input_data = gen_ppl_from_json(dataset)
     else:
         with open(args.dataset, 'r', encoding='utf-8') as f:
             input_data = json.load(f)
@@ -280,9 +274,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # 添加命令行选项
-    parser.add_argument("--model", type=str, default="puyuapi") # codellamaapi, puyuapi, llamaapi, sqlcoderapi, vicunaapi, gptapi
-    parser.add_argument("--model_version", type=str, default="none",
-                    help="Which GPT version to use with gptapi? Options: o1-preview, gpt-4, gpt-4o")
+    # parser.add_argument("--model", type=str, default="puyuapi") # codellamaapi, puyuapi, llamaapi, sqlcoderapi, vicunaapi, gptapi
+    # parser.add_argument("--model_version", type=str, default="none",
+    #                 help="Which GPT version to use with gptapi? Options: o1-preview, gpt-4, gpt-4o")
     parser.add_argument("--dataset", type=str, default="ppl_dev.json")
     # parser.add_argument("--out_file", type=str, default="raw.txt")
     parser.add_argument("--kshot", type=int, default=3)
@@ -296,7 +290,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # Construct the log directory and file path
     log_dir = os.path.join(os.path.dirname(__file__), "logs")
-    log_file_path = os.path.join(log_dir, f"{args.model}_{args.model_version}_{args.select_type}.log")
+    log_file_path = os.path.join(log_dir, f"{args.dataset.upper()}-{args.kshot}_SHOT_{args.select_type}_{args.n}.log")
 
     # Create the logs directory if it does not exist
     if not os.path.exists(log_dir):
@@ -307,7 +301,7 @@ if __name__ == '__main__':
                         filemode='w')
     logger = logging.getLogger()
     if args.sl == False:
-        input_data = gen_ppl_from_json(args.dataset, args.model[:-3])
+        input_data = gen_ppl_from_json(args.dataset)
     else:
         input_data = json.load(open(args.dataset, 'r'))
     path_generate = f"data/process/{args.dataset.upper()}-{args.kshot}_SHOT_{args.select_type}_{args.n}"
@@ -319,13 +313,12 @@ if __name__ == '__main__':
     prompt_generation(input_data, args.dataset,args.kshot, args.select_type, args.sl, args.n,path_generate)
 
     
-# python prompt_gen.py \
+# python src/sources/sql_gen/prompt_gen.py \
 #   --dataset ppl_dev.json \
-#   --out_prompt_file generated_prompts.txt \
-#   --n 5 \
-#   --kshot 3 \
+#   --out_prompt_file prompts.txt \
+#   --n 1034 \
+#   --kshot 9 \
 #   --select_type Euclidean_mask \
-#   --sl
 
-# python src/sources/sql_gen/prompt_gen.py --model "llamaapi" --kshot 9 --pool 1 --select_type Euclidean_mask --n 5
+# python src/sources/sql_gen/prompt_gen.py --kshot 9 --pool 1 --select_type Euclidean_mask --n 1034
 

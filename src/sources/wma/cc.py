@@ -3,7 +3,7 @@ import json
 
 from wma import WeightedMajorityAlgorithm
 from post_process import extract_sql  # 假設在 post_process.py 中定義
-from evaluation import evaluate_cc
+from evaluation import evaluate_cc,build_foreign_key_map_from_json
 from sql_gen.call_llm import run_sql_generation,load_prompts
 import argparse
 from itertools import zip_longest
@@ -30,6 +30,7 @@ def call_expert(expert_name: str, prompt:str,path_generate:str,model_version=Non
     # question = sample['question']
     # 在真實應用中，應將 question 塞入 prompt，呼叫 LLM API。
     # 這裡示範用 if-else 模擬不同模型輸出。
+    
     if expert_name == "codellamaapi":
         return run_sql_generation(model=expert_name,prompts=[prompt],path_generate=path_generate ,out_file="codellama.txt",pool_num=1,call_mode="append")
     elif expert_name == "puyuapi":
@@ -70,6 +71,7 @@ def run_sql_generation_wma(input_data,path_generate):
             "current_weights": Dict[str, float]
         }
     """
+    
 
     # 初始化 Weighted Majority Algorithm
     wma = WeightedMajorityAlgorithm(epsilon=0.2)
@@ -81,21 +83,33 @@ def run_sql_generation_wma(input_data,path_generate):
     wma.add_expert("gptapi35", init_weight=1.0)
     wma.add_expert(f"gptapi4", init_weight=1.0)
     wma.add_expert("gptapi4o", init_weight=1.0)
-
+    wma.add_expert("o1-preview", init_weight=1.0)
+    # Add validation
+    if not input_data:
+        raise ValueError("input_data cannot be empty")
+        
+    for sample in input_data:
+        if 'prompt' not in sample or not sample['prompt']:
+            raise ValueError(f"Invalid sample, missing or empty prompt: {sample}")
     results = []
+    final_results = []
+
     for index,sample in enumerate(input_data):
         # A. 各專家輸出 raw SQL
         # raw_sql_codellama = call_expert("codellamaapi", sample['prompt'],path_generate)
         raw_sql_gpt35     = call_expert("gptapi", sample['prompt'],path_generate,model_version="gpt-3.5-turbo")
         raw_sql_gpt4     = call_expert("gptapi", sample['prompt'],path_generate,model_version="gpt-4")
         raw_sql_gpt4o     = call_expert("gptapi", sample['prompt'],path_generate,model_version="gpt-4o")
+        raw_sql_gpto1preview     = call_expert("gptapi", sample['prompt'],path_generate,model_version="o1-preview")
+        
         # raw_sql_llama     = call_expert("llamaapi", sample['prompt'],path_generate)
 
         # B. 每位專家的 raw SQL 都先做基礎清洗
         # clean_sql_codellama = extract_sql(raw_sql_codellama, llm="codellama")
-        clean_sql_gpt35     = sqlparse.format(extract_sql(raw_sql_gpt35, "sensechat").strip(), reindent=False)
-        clean_sql_gpt4     = sqlparse.format(extract_sql(raw_sql_gpt4, "sensechat").strip(), reindent=False)
-        clean_sql_gpt4o     = sqlparse.format(extract_sql(raw_sql_gpt4o, "sensechat").strip(), reindent=False)
+        clean_sql_gpt35 = sqlparse.format(extract_sql(raw_sql_gpt35, "sensechat").strip(), reindent=False)
+        clean_sql_gpt4 = sqlparse.format(extract_sql(raw_sql_gpt4, "sensechat").strip(), reindent=False)
+        clean_sql_gpt4o = sqlparse.format(extract_sql(raw_sql_gpt4o, "sensechat").strip(), reindent=False)
+        clean_sql_gpto1preview = sqlparse.format(extract_sql(raw_sql_gpto1preview, "sensechat").strip(), reindent=False)
         
         # clean_sql_llama     = extract_sql(raw_sql_llama,     llm="llama")
 
@@ -105,19 +119,19 @@ def run_sql_generation_wma(input_data,path_generate):
             "gptapi35":      clean_sql_gpt35,
             "gptapi4":      clean_sql_gpt4,
             "gptapi4o":      clean_sql_gpt4o,
+            "o1-preview":      clean_sql_gpto1preview,
             
             # "llamaapi":     clean_sql_llama
         }
-
-        # # D. 用 WMA 投票，拿到投票後的最終 SQL
-        # final_sql_voted, chosen_experts = wma.weighted_majority_vote(predictions)
-
+        # print(predictions)
+        
         # E. 再次清洗(可選)，讓 final_sql 更乾淨
         # final_sql_clean = extract_sql(final_sql_voted, llm="codellama")
         # 若想用其他 llm 方式清洗，可自行替換
         # final_sql_clean = extract_sql(final_sql_voted, llm="gpt")
 
         # # F. 判斷是否正確
+        is_correct_dict = {}
         for experts,sql in predictions.items():
             print(experts,sql)
             gold_sql = sample.get("gold_sql")
@@ -129,22 +143,35 @@ def run_sql_generation_wma(input_data,path_generate):
                 # Evaluate predictions
                 db = "./data/spider/database"
                 etype = "all"
-                kmaps = None               
-                is_correct = evaluate_cc(gold_sql, sql, db, etype, kmaps)
+                table = "./data/spider/tables.json"
+                kmaps = build_foreign_key_map_from_json(table)               
+                is_correct = evaluate_cc(gold_sql, [sql], db, etype, kmaps)
+                is_correct_dict[experts] = is_correct
         # # G. 更新專家權重（若該輪答錯，就衰減 chosen_experts）
-            wma.update_weights(experts, is_correct)
-
-        # # H. 紀錄結果
+                wma.update_weights(experts, is_correct)
+                # current_weight = wma.get_expert_weight(experts)
+            # C. 根據更新後的權重進行加權投票
+            final_sql, chosen_experts, best_weight = wma.weighted_majority_vote(predictions)
+            # # H. 紀錄結果
             results.append({
                 "index": index,
                 "question": sample["question"],
-                "experts_model": experts,
-                "predicted_sql": sql,
+                # "experts_model": experts,
                 "gold_sql":  gold_sql,
-                "is_correct": is_correct,
-                "current_weights": wma.get_weights().get(experts)
+                "predicted_sql": predictions,
+                "final_sql": final_sql,
+                "chosen_experts": chosen_experts,
+                "is_correct": is_correct_dict,
+                "current_weights": wma.get_weights()
             })
             print(results)
+            # 保存最終結果到 JSON 結構
+            final_results.append({
+                "index": index,
+                "chosen_expert": chosen_experts,
+                "best_weight":best_weight,
+                "final_sql": final_sql,
+            })
 
             # results.append({
             #     "question": sample["question"],
@@ -158,11 +185,15 @@ def run_sql_generation_wma(input_data,path_generate):
             #     "current_weights":   wma.get_weights().copy()
             # })
             # Define the output JSON file path
-            output_file = os.path.join(path_generate,"results.json")
-            # Write results to a JSON file
-            with open(output_file, "w") as f:
-                json.dump(results, f, indent=4)
-            print(f"Results successfully written to {output_file}")
+        final_results_path = os.path.join(path_generate, "final_result.json")
+        with open(final_results_path, "w") as f:
+            json.dump(final_results, f, indent=4)
+        print(f"Voted results successfully written to {final_results_path}")
+        output_file = os.path.join(path_generate,"results.json")
+        # Write results to a JSON file
+        with open(output_file, "w") as f:
+            json.dump(results, f, indent=4)
+        print(f"Results successfully written to {output_file}")
 
     return results
     
@@ -181,19 +212,19 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print("Arguments received:", args)
     gold_sql = "./data/spider/dev_gold.sql"
-    path_generate = "data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_5"
+    path_generate = "data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_100"
     n = 10
     with open(gold_sql) as f:
         glist = [l.strip().split('\t') for l in f.readlines() if len(l.strip()) > 0]
     question_path = os.path.join(path_generate,"questions.json")
     with open(question_path) as f:
         questions = json.load(f)
-        
+    print(len(glist),len(questions))
     all_prompts = load_prompts(path_generate,num_prompts=None)
     input_data = []
-    input_data = [{"prompt": prompt, "golden": golden,"question":questions['question']} for prompt, golden,questions in zip_longest(all_prompts[:n], glist[:n],questions[:n], fillvalue=None)]
-    print(input_data)
-        
+    input_data = [{"prompt": prompt, "gold_sql": golden,"question":questions['question']} for prompt, golden,questions in zip_longest(all_prompts[:n], glist[:n],questions[:n], fillvalue=None)]
+    print(len(input_data))
+    # print(input_data[0])
     # # 執行多專家投票 + WMA流程
     results = run_sql_generation_wma(input_data,path_generate)
 

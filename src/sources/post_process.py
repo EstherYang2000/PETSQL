@@ -18,67 +18,52 @@ def process_duplication(sql):
     sql = sql.strip().split("#")[0]
     return sql
 # Function to extract SQL queries based on the LLM type
-def extract_sql(query, llm='codellama'):
+def extract_sql(query, llm='sensechat'):
+    def clean_query(sql):
+        """Helper function to clean up SQL syntax."""
+        return sql.strip().replace('\n', ' ').replace('`', '').strip()
+
     if llm == "sensechat":
         # Remove specific markers for sensechat and clean query
-        query = query.replace("### SQL:","").replace("###","").replace("#","")
-        if '```SQL ' in query:
+        query = query.replace("### SQL:", "").replace("###", "").replace("#", "")
+        if '```SQL' in query or '```sql' in query:
+            # Extract the SQL query from the code block using regex
             try:
-                # Extract the SQL query from the block using regex
-                query = re.findall(r"```SQL(.*?)```", query.replace('\n', ' '))[0]
-                # return re.findall(r"```SQL(.*?)```", query.replace('\n', ' '))[0]
-            except:
+                sql = re.findall(r"```(?:SQL|sql)(.*?)```", query.replace('\n', ' '))[0]
+                return clean_query(sql)
+            except IndexError:
                 # If no closing backticks, extract until the end
-                query = re.findall(r"```SQL(.*?)", query.replace('\n', ' '))[0]
-                # return re.findall(r"```SQL(.*?)", query.replace('\n', ' '))[0]
-        if '```sql ' in query:
-
-            # print(query)
+                sql = re.findall(r"```(?:SQL|sql)(.*?)", query.replace('\n', ' '))[0]
+                return clean_query(sql)
+        elif ';' in query:
+            # Find the query ending with a semicolon
             try:
-                return re.findall(r"```sql(.*?)```", query.replace('\n', ' '))[0]
-            except:
-                return re.findall(r"```sql(.*?)", query.replace('\n', ' '))[0]
+                sql = re.findall(r'(.*?);', query.replace('\n', ' '))[0]
+                return clean_query(sql)
+            except IndexError:
+                pass
         else:
-            return query.replace('\n', '').replace("`","")  # Clean up and return query
-    elif llm == "codellama" or llm == "sqlcoder":
+            # Default case: clean and return query
+            return clean_query(query)
+    elif llm in {"codellama", "sqlcoder"}:
         # For codellama/sqlcoder, find the query ending with a semicolon
         if ';' in query:
-            res = re.findall(r'(.*?);', query.replace('\n', ' '))[0].strip()
-            # print(res)
-            res = res.replace('# ', '').replace('##', '') # Clean comments
-            if res.lower().strip().startswith("SELECT".lower()):
-                return res.replace('# ', '').replace('##', '') # If already starts with SELECT, return
-            else:
-                return "SELECT " + res # Otherwise, prepend SELECT
-
+            sql = re.findall(r'(.*?);', query.replace('\n', ' '))[0]
+            return clean_query(sql)
         else:
-            # Handle cases without a semicolon
-            res = query.replace('\n', '').split("###")[0].replace('# ', '').replace('##', '')
-            if res.lower().strip().startswith("SELECT".lower()):
-                return res.replace('# ', '').replace('##', '')
-            else:
-                return "SELECT " + res
+            return "SELECT " + clean_query(query)
     elif llm == "puyu":
         # For puyu, clean up '#' and ensure SELECT at the beginning
-        res = query.replace("#","")
-        if res.lower().strip().startswith("SELECT".lower()):
-            return res
-        else:
-            return "SELECT " + res
+        query = query.replace("#", "")
+        return clean_query(query) if query.lower().strip().startswith("select") else "SELECT " + clean_query(query)
     elif llm == 'gpt':
         # For gpt, process duplication and ensure SELECT at the beginning
-        sql = " ".join(query.replace("\n", " ").split()) # Flatten the query
+        sql = " ".join(query.replace("\n", " ").split())
         sql = process_duplication(sql)
-        # python version should >= 3.8
-        if sql.lower().strip().startswith("select"):
-            return sql  
-        elif sql.startswith(" "):
-            return "SELECT" + sql  
-        else:
-            return "SELECT " + sql 
+        return clean_query(sql) if sql.lower().strip().startswith("select") else "SELECT " + clean_query(sql)
     else:
         # Default case: return the query as-is
-        return query
+        return clean_query(query)
 
 
 def extract_sql_2(query, llm='codellama'):
@@ -245,4 +230,4 @@ if __name__ == "__main__":
 
 #python src/sources/post_process.py --file src/sources/raw_codellama.txt --output src/sources/output_codellama.txt --llm codellama
 #python src/sources/post_process.py --file src/sources/raw_gpt.txt --output src/sources/output_gpt.txt --llm gpt
-# python src/sources/post_process.py --file src/sources/raw.txt --output src/sources/output_llama.txt --llm llama
+# python src/sources/post_process.py --file data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034/phind-codellam_api.txt --output data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034/phind-codellam_api_output.txt --llm llama
