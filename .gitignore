@@ -25,6 +25,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+third_party/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -145,7 +146,8 @@ cython_debug/
 .vscode
 glove
 
-data/spider/
+database/
+data/
 sentence_*
 *.txt
 *.out
@@ -155,4 +157,9 @@ data_*.json
 sentence_transformers/
 data_*.json
 data/
+output/
+raw/
+logs/
+vector_cache/
 # *.jsonl
+       
