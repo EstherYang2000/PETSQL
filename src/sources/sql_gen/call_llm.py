@@ -115,7 +115,7 @@ def run_sql_generation(model,
     elif model == "qwen2.5-coderaapi":
         llm_instance = OllamaChat(model="qwen2.5-coder:32b-instruct-fp16")
     elif model == "llamaapi":
-        llm_instance = OllamaChat(model="llama3:70b")
+        llm_instance = OllamaChat(model="llama3.3:latest")
         # llm_instance = Llama2(model_name="ruslanmv/Meta-Llama-3.1-8B-Text-to-SQL", max_memory={"cpu": "4GiB", 0: "22GiB"})
     # elif model == "sqlcoderapi":
     #     llm_instance = SQLCoder()
@@ -126,6 +126,8 @@ def run_sql_generation(model,
     elif model == "deepseekapi":
         if model_version == "v2-16b":
             llm_instance = OllamaChat(model="deepseek-coder-v2:16b")
+        elif model_version == "r1_70b":
+            llm_instance = OllamaChat(model="deepseek-r1:70b")
         # llm_instance = DeepSeek(
         #     model_name="deepseek-ai/deepseek-coder-33b-instruct",
         #     max_memory={

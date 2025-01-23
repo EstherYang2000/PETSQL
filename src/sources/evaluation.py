@@ -675,60 +675,60 @@ def eval_exec_match(db, p_str, g_str, pred, gold):
     return 1 if the values between prediction and gold are matching
     in the corresponding index. Currently not support multiple col_unit(pairs).
     """
-    # conn = sqlite3.connect(db)
-    # cursor = conn.cursor()
-    # try:
-    #     cursor.execute(p_str)
-    #     p_res = cursor.fetchall()
-    # except:
-    #     return False
-
-    # cursor.execute(g_str)
-    # q_res = cursor.fetchall()
-
-    # def res_map(res, val_units):
-    #     rmap = {}
-    #     for idx, val_unit in enumerate(val_units):
-    #         key = tuple(val_unit[1]) if not val_unit[2] else (val_unit[0], tuple(val_unit[1]), tuple(val_unit[2]))
-    #         rmap[key] = [r[idx] for r in res]
-    #     return rmap
-
-    # p_val_units = [unit[1] for unit in pred['select'][1]]
-    # q_val_units = [unit[1] for unit in gold['select'][1]]
-    # return res_map(p_res, p_val_units) == res_map(q_res, q_val_units)
+    conn = sqlite3.connect(db)
+    cursor = conn.cursor()
     try:
-        with sqlite3.connect(db) as conn:
-            cursor = conn.cursor()
-            
-            # Execute predicted query
-            try:
-                cursor.execute(p_str)
-                p_res = cursor.fetchall()
-            except sqlite3.OperationalError as e:
-                print(f"Error executing predicted query: {e}")
-                return False
-            
-            # Execute gold query
-            cursor.execute(g_str)
-            q_res = cursor.fetchall()
-        
-        # Helper to map results to value units
-        def res_map(res, val_units):
-            rmap = {}
-            for idx, val_unit in enumerate(val_units):
-                key = tuple(val_unit[1]) if not val_unit[2] else (val_unit[0], tuple(val_unit[1]), tuple(val_unit[2]))
-                rmap[key] = [r[idx] for r in res]
-            return rmap
-
-        # Extract value units
-        p_val_units = [unit[1] for unit in pred['select'][1]]
-        q_val_units = [unit[1] for unit in gold['select'][1]]
-
-        # Compare mapped results
-        return res_map(p_res, p_val_units) == res_map(q_res, q_val_units)
-    except Exception as e:
-        print(f"Unexpected error: {e}")
+        cursor.execute(p_str)
+        p_res = cursor.fetchall()
+    except:
         return False
+
+    cursor.execute(g_str)
+    q_res = cursor.fetchall()
+
+    def res_map(res, val_units):
+        rmap = {}
+        for idx, val_unit in enumerate(val_units):
+            key = tuple(val_unit[1]) if not val_unit[2] else (val_unit[0], tuple(val_unit[1]), tuple(val_unit[2]))
+            rmap[key] = [r[idx] for r in res]
+        return rmap
+
+    p_val_units = [unit[1] for unit in pred['select'][1]]
+    q_val_units = [unit[1] for unit in gold['select'][1]]
+    return res_map(p_res, p_val_units) == res_map(q_res, q_val_units)
+    # try:
+    #     with sqlite3.connect(db) as conn:
+    #         cursor = conn.cursor()
+            
+    #         # Execute predicted query
+    #         try:
+    #             cursor.execute(p_str)
+    #             p_res = cursor.fetchall()
+    #         except sqlite3.OperationalError as e:
+    #             print(f"Error executing predicted query: {e}")
+    #             return False
+            
+    #         # Execute gold query
+    #         cursor.execute(g_str)
+    #         q_res = cursor.fetchall()
+        
+    #     # Helper to map results to value units
+    #     def res_map(res, val_units):
+    #         rmap = {}
+    #         for idx, val_unit in enumerate(val_units):
+    #             key = tuple(val_unit[1]) if not val_unit[2] else (val_unit[0], tuple(val_unit[1]), tuple(val_unit[2]))
+    #             rmap[key] = [r[idx] for r in res]
+    #         return rmap
+
+    #     # Extract value units
+    #     p_val_units = [unit[1] for unit in pred['select'][1]]
+    #     q_val_units = [unit[1] for unit in gold['select'][1]]
+
+    #     # Compare mapped results
+    #     return res_map(p_res, p_val_units) == res_map(q_res, q_val_units)
+    # except Exception as e:
+    #     print(f"Unexpected error: {e}")
+    #     return False
 
 
 # Rebuild SQL functions for value evaluation
@@ -940,7 +940,7 @@ def build_foreign_key_map_from_json(table):
 """
 python src/sources/evaluation.py \
 --gold ./data/spider/dev_gold.sql  \
---pred /home/yyj/Desktop/yyj/thesis/code/PETSQL/data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034/phind-codellam_api_output.txt \
+--pred /home/yyj/Desktop/yyj/thesis/code/PETSQL/data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034/qwen2.5-coder_32b_instruct_api_output.txt \
 --etype all \
 --db ./data/spider/database \
 --table ./data/spider/tables.json \

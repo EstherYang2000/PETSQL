@@ -29,11 +29,11 @@ def extract_sql(query, llm='sensechat'):
         if '```SQL' in query or '```sql' in query:
             # Extract the SQL query from the code block using regex
             try:
-                sql = re.findall(r"```(?:SQL|sql)(.*?)```", query.replace('\n', ' '))[0]
+                sql = re.findall(r"```(?:SQL|sql|sqlite)(.*?)```", query.replace('\n', ' '))[0]
                 return clean_query(sql)
             except IndexError:
                 # If no closing backticks, extract until the end
-                sql = re.findall(r"```(?:SQL|sql)(.*?)", query.replace('\n', ' '))[0]
+                # sql = re.findall(r"```(?:SQL|sql)(.*?)", query.replace('\n', ' '))[0]
                 return clean_query(sql)
         elif ';' in query:
             # Find the query ending with a semicolon

@@ -29,7 +29,7 @@ class BasicExampleSelector(object):
     def get_schemas_and_preresult(self,):
         self.db_id_to_table_json = dict()
         # try:
-        for table_json in json.load(open("data/spider/test_data/tables.json", "r")):
+        for table_json in json.load(open("data/spider/tables.json", "r")):
             self.db_id_to_table_json[table_json["db_id"]] = table_json
         # except:
         #     data_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))

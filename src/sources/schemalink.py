@@ -12,6 +12,7 @@ from sql_metadata import Parser
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--output", default='ppl_dev_add_sl.json')
+parser.add_argument("--file", default='')  # Path to the input file containing SQL queries
 args = parser.parse_args()
 
 def extract_tab_from_sql(item, sample):
@@ -34,9 +35,10 @@ def extract_tab_from_sql(item, sample):
 
 
 if __name__ == '__main__':
+    
     input_data = json.load(open(os.path.dirname(__file__) + "/ppl_dev.json", 'r'))
     file_path = os.path.dirname(__file__)
-    with open(file_path + '/intermediate_results_only_dont_use_gpt.txt', 'r') as f:
+    with open(args.file, 'r') as f:
         clm = f.readlines()
     gpt_tab = []
     for ix, it in enumerate(clm):

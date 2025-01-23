@@ -290,8 +290,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # Construct the log directory and file path
     log_dir = os.path.join(os.path.dirname(__file__), "logs")
+    print(log_dir)
     log_file_path = os.path.join(log_dir, f"{args.dataset.upper()}-{args.kshot}_SHOT_{args.select_type}_{args.n}.log")
-
+    print(log_file_path)
     # Create the logs directory if it does not exist
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
@@ -312,13 +313,16 @@ if __name__ == '__main__':
     print(args.dataset)
     prompt_generation(input_data, args.dataset,args.kshot, args.select_type, args.sl, args.n,path_generate)
 
-    
-# python src/sources/sql_gen/prompt_gen.py \
-#   --dataset ppl_dev.json \
-#   --out_prompt_file prompts.txt \
-#   --n 1034 \
-#   --kshot 9 \
-#   --select_type Euclidean_mask \
+"""
+python src/sources/sql_gen/prompt_gen.py \
+  --dataset ppl_dev.json \
+  --n 1034 \
+  --kshot 9 \
+  --select_type Euclidean_mask \
 
-# python src/sources/sql_gen/prompt_gen.py --kshot 9 --pool 1 --select_type Euclidean_mask --n 1034
+"""
+    
+
+
+# python src/sources/sql_gen/prompt_gen.py --kshot 3 --pool 1 --select_type Euclidean_mask_select --n 1034
 
