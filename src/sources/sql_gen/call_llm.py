@@ -13,7 +13,7 @@ from transformers import pipeline
 from tqdm import tqdm
 
 # 你的專案內部匯入
-from llms import SQLCoder, vicuna, GPT,OllamaChat
+from llms import SQLCoder, vicuna, GPT,OllamaChat,GroqChat
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -48,7 +48,7 @@ def llmapi(prompt):
     response = model_pipeline(prompt, max_length=50, num_return_sequences=1)
     return response[0]["generated_text"]
 
-def load_prompts(path_generate,num_prompts=None):
+def load_prompts(path_generate,start_num_prompts = None,num_prompts=None):
     # 1) 讀取 prompt_file
     prompt_path = os.path.join(path_generate, "prompts.txt")
 
@@ -59,8 +59,8 @@ def load_prompts(path_generate,num_prompts=None):
     all_prompts = content.split("\n\n\n\n")
 
     # 如果有指定要處理的 prompt 數量，就截斷
-    if num_prompts is not None and num_prompts > 0:
-        all_prompts = all_prompts[:num_prompts]
+    if num_prompts is not None and start_num_prompts is not None and start_num_prompts >=0 and num_prompts > 0:
+        all_prompts = all_prompts[start_num_prompts:num_prompts]
     print(f"Loaded {len(all_prompts)} prompts.")
     return all_prompts
 def run_sql_generation(model,
@@ -69,9 +69,10 @@ def run_sql_generation(model,
                        out_file,
                        pool_num=1,
                        model_version="gpt-4",
-                       num_prompts=None,
+                       start_num_prompts = 0,
+                       num_prompts=1034,
                        call_mode="write",
-                       batch_size=4):
+                       batch_size=1):
     """
     主函式：根據使用者指定的 model 產生 SQL 查詢，並將輸出寫入 out_file。
 
@@ -102,6 +103,8 @@ def run_sql_generation(model,
     # print(f"First prompt: {all_prompts[0]}")
 
     # 2) 初始化對應 model (根據 model 參數)
+    llm_instance = None
+    api_key = "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"
     if model == "codellamaapi":
         # llm_instance = CodeLlama(model_name="codellama/CodeLlama-34b-Instruct-hf", max_memory={"cpu": "4GiB", 0: "22GiB"})
         # llm_instance = CodeLlama2(
@@ -110,24 +113,38 @@ def run_sql_generation(model,
         # )
         if model_version == "34b-instruct":
             llm_instance = OllamaChat(model="codellama:34b-instruct")
+        elif model_version == "70b":
+            llm_instance = OllamaChat(model="codellama:70b")
     elif model == "phind-codellamaapi":
         llm_instance = OllamaChat(model="phind-codellama")
-    elif model == "qwen2.5-coderaapi":
-        llm_instance = OllamaChat(model="qwen2.5-coder:32b-instruct-fp16")
+    elif model == "qwen_api":
+        if model_version == "32b-instruct-fp16":
+            llm_instance = OllamaChat(model="qwen2.5-coder:32b-instruct-fp16")
+        elif model_version == "2_5_72b":
+            llm_instance = OllamaChat(model="qwen2.5:72b")
     elif model == "llamaapi":
-        llm_instance = OllamaChat(model="llama3.3:latest")
+        if model_version == "3.3":
+            llm_instance = OllamaChat(model="llama3.3:latest")
+        elif model_version == "3.3_70b_specdec":
+            llm_instance = GroqChat(api_key=api_key,model="llama-3.3-70b-specdec")
         # llm_instance = Llama2(model_name="ruslanmv/Meta-Llama-3.1-8B-Text-to-SQL", max_memory={"cpu": "4GiB", 0: "22GiB"})
-    # elif model == "sqlcoderapi":
-    #     llm_instance = SQLCoder()
-    # elif model == "vicunaapi":
-    #     llm_instance = vicuna()
     elif model == "gptapi":
         llm_instance = GPT(model=model_version)
     elif model == "deepseekapi":
         if model_version == "v2-16b":
             llm_instance = OllamaChat(model="deepseek-coder-v2:16b")
+        elif model_version == "r1-32b":
+            llm_instance = OllamaChat(model="deepseek-r1:32b")
         elif model_version == "r1_70b":
             llm_instance = OllamaChat(model="deepseek-r1:70b")
+        elif model_version == "r1_distill_llama_70b":
+            llm_instance = GroqChat(api_key=api_key,model="deepseek-r1-distill-llama-70b")
+        elif model_version == "33b":
+            llm_instance = OllamaChat(model="deepseek-coder:33b")
+        elif model_version == "coder-v2:16b":
+            llm_instance = OllamaChat(model="deepseek-coder-v2:16b")
+        elif model_version == "llm_67b":
+            llm_instance = OllamaChat(model="deepseek-llm:67b")
         # llm_instance = DeepSeek(
         #     model_name="deepseek-ai/deepseek-coder-33b-instruct",
         #     max_memory={
@@ -140,8 +157,8 @@ def run_sql_generation(model,
         initialize_model()
         llm_instance = None
         
-    if num_prompts is not None and num_prompts > 0:
-        prompts = prompts[:num_prompts]
+    if num_prompts is not None and start_num_prompts is not None and start_num_prompts >=0 and num_prompts > 0:
+        prompts = prompts[start_num_prompts:num_prompts]
     print(f"Loaded {len(prompts)} prompts.")
     print(f"Loaded model = {model}")
     print(f"Processing {len(prompts)} prompts...")
@@ -164,7 +181,7 @@ def run_sql_generation(model,
             for i in tqdm(range(0, len(prompts), batch_size), desc="Processing Batches"):
                 batch = prompts[i:i + batch_size]
                 batch_responses = []
-                if model == "deepseekapi" or model == "codellamaapi" or model == "llamaapi" or model == "phind-codellamaapi" or model == "qwen2.5-coderaapi":
+                if model == "deepseekapi" or model == "codellamaapi" or model == "llamaapi" or model == "phind-codellamaapi" or model == "qwen_api":
                     batch_responses = llm_instance.generate_batch(batch)
                 elif model == "gptapi":
                     batch_responses = llm_instance.generate_batch(
@@ -219,6 +236,7 @@ if __name__ == '__main__':
                         help="Path to the generated raw file.")
     parser.add_argument("--out_file", type=str, default="raw.txt")
     parser.add_argument("--pool", type=int, default=1)
+    parser.add_argument("--start_num_prompts", type=int, default=None)
     parser.add_argument("--num_prompts", type=int, default=None,
                         help="Number of prompts to process from the prompt file (if not specified, take all).")
     pqrs = parser.add_argument("--call_mode", type=str, default="write",
@@ -230,7 +248,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # 根據 dataset 及其他參數組成 path_generate (這裡只示範)
-    all_prompts = load_prompts(args.path_generate,num_prompts=args.num_prompts)
+    all_prompts = load_prompts(args.path_generate,start_num_prompts = args.start_num_prompts,num_prompts=args.num_prompts)
     print(len(all_prompts))
     # 執行主程式
     run_sql_generation(

@@ -6,7 +6,7 @@ class WeightedMajorityAlgorithm:
       - 若正確，則保持或輕微增幅 (本範例預設不增，只維持)
     """
 
-    def __init__(self, experts=None, epsilon=0.05):
+    def __init__(self, experts=None, epsilon=0.005):
         """
         初始化 WMA 演算法。
         

@@ -631,10 +631,8 @@ def evaluate_cc(gold, predict, db_dir, etype, kmaps):
         db = os.path.join(db_dir, db, db + ".sqlite")
         schema = Schema(get_schema(db))
         g_sql = get_sql(schema, g_str)
-        print("g_sql:{}".format(g_sql))
         try:
             p_sql = get_sql(schema, p_str)
-            print("p_sql:{}".format(p_sql))
         except Exception as e:
             # If p_sql is not valid, it is incorrect
             print(f"Error parsing SQL: {e}")
@@ -676,11 +674,14 @@ def eval_exec_match(db, p_str, g_str, pred, gold):
     in the corresponding index. Currently not support multiple col_unit(pairs).
     """
     conn = sqlite3.connect(db)
+
     cursor = conn.cursor()
     try:
         cursor.execute(p_str)
         p_res = cursor.fetchall()
-    except:
+
+    except Exception as e:
+        print(f"SQL Execution Error: {e}")
         return False
 
     cursor.execute(g_str)

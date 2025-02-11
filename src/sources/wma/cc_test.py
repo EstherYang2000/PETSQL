@@ -16,7 +16,12 @@ wma = WeightedMajorityAlgorithm(epsilon=0.2)
 wma.add_expert("codellamaapi", init_weight=1.0)
 wma.add_expert("puyuapi", init_weight=1.0)
 wma.add_expert("llamaapi", init_weight=1.0)
-
+def load_sql_from_txt(file_path):
+    """從 TXT 文件中載入 SQL 結果，每行代表一個 SQL 預測"""
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+    with open(file_path, 'r', encoding='utf-8') as f:
+        return [line.strip() for line in f.readlines()]
 def append_json(file_path, new_data):
     """ Append new data to an existing JSON file or create a new one if it doesn't exist. """
     # Check if file exists and read existing content
@@ -151,29 +156,22 @@ def run_sql_generation_wma(input_data,path_generate,start_num_prompts,end_num_pr
             raise ValueError(f"Invalid sample, missing or empty prompt: {sample}")
     results = []
     final_results = []
-
+    
+    sql_llama3_3 = load_sql_from_txt(os.path.join(path_generate, "llamaapi_3.3_cc.txt"))
+    sql_qwen2_5 = load_sql_from_txt(os.path.join(path_generate, "qwen_api_32b-instruct-fp16_cc.txt"))
+    sql_deepseek_r1_70b = load_sql_from_txt(os.path.join(path_generate, "deepseekapi_r1_distill_llama_70b_cc.txt")) 
     for index,sample in enumerate(input_data):
         print(f"-------------Processing sample {index+start_num_prompts}...-------------")
-        # A. 各專家輸出 raw SQL
-        # raw_sql_codellama = call_expert("codellamaapi", sample['prompt'],path_generate)
-        # raw_sql_gpt35     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="gpt-3.5-turbo")
-        # raw_sql_gpt4     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="gpt-4")
-        # raw_sql_gpt4o     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="gpt-4o")
-        # raw_sql_gpto1preview     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="o1-preview")
-        raw_sql_llama3_3    = call_expert("llamaapi", sample['prompt'],path_generate,end_num_prompts,model_version="3.3")
-        raw_sql_qwen2_5    = call_expert("qwen_api", sample['prompt'],path_generate,end_num_prompts,model_version="32b-instruct-fp16")
-        raw_sql_deepseek_r1_70b    = call_expert("deepseekapi", sample['prompt'],path_generate,end_num_prompts,model_version="r1_distill_llama_70b")
-        # raw_sql_llama     = call_expert("llamaapi", sample['prompt'],path_generate)
-
+        
         # B. 每位專家的 raw SQL 都先做基礎清洗
         # clean_sql_codellama = extract_sql(raw_sql_codellama, llm="codellama")
         # clean_sql_gpt35 = sqlparse.format(extract_sql(raw_sql_gpt35, "sensechat").strip(), reindent=False)
         # clean_sql_gpt4 = sqlparse.format(extract_sql(raw_sql_gpt4, "sensechat").strip(), reindent=False)
         # clean_sql_gpt4o = sqlparse.format(extract_sql(raw_sql_gpt4o, "sensechat").strip(), reindent=False)
         # clean_sql_gpto1preview = sqlparse.format(extract_sql(raw_sql_gpto1preview, "sensechat").strip(), reindent=False)
-        clean_sql_llama3_3 = sqlparse.format(extract_sql(raw_sql_llama3_3, "sensechat").strip(), reindent=False)
-        clean_sql_qwen2_5 = sqlparse.format(extract_sql(raw_sql_qwen2_5, "sensechat").strip(), reindent=False)
-        clean_sql_deepseek_r1_70b = sqlparse.format(extract_sql(raw_sql_deepseek_r1_70b, "sensechat").strip(), reindent=False)
+        clean_sql_llama3_3 = sqlparse.format(extract_sql(sql_llama3_3[index], "sensechat").strip(), reindent=False)
+        clean_sql_qwen2_5 = sqlparse.format(extract_sql(sql_qwen2_5[index], "sensechat").strip(), reindent=False)
+        clean_sql_deepseek_r1_70b = sqlparse.format(extract_sql(sql_deepseek_r1_70b[index], "sensechat").strip(), reindent=False)
         # clean_sql_llama     = extract_sql(raw_sql_llama,     llm="llama")
 
         # C. 建立投票用 predictions dict
@@ -276,9 +274,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print("Arguments received:", args)
     gold_sql = "./data/spider/dev_gold.sql"
-    path_generate = "data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_2"
+    path_generate = "data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_1"
     start_num_prompts =  0
-    end_num_prompts = 1034
+    end_num_prompts = 100
     with open(gold_sql) as f:
         glist = [l.strip().split('\t') for l in f.readlines() if len(l.strip()) > 0]
     question_path = os.path.join(path_generate,"questions.json")

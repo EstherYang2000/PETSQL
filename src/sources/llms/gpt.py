@@ -25,8 +25,8 @@ class GPT:
         self,
         prompt: str,
         model: str = None,  # <-- 新增 model 參數，預設 None
-        temperature: float = 0.7,
-        max_tokens: int = 200,
+        temperature: float = 1,
+        max_tokens: int = 2048,
         **kwargs
     ) -> str:
         """
@@ -55,7 +55,7 @@ class GPT:
                     {"role": "user", "content": str(prompt)}  # Ensure prompt is string
                 ],
                 temperature=temperature,
-                max_tokens=max_tokens,
+                max_completion_tokens=max_tokens,
                 **kwargs
             )
             result = response.choices[0].message.content
@@ -97,7 +97,7 @@ class GPT:
                     prompt,
                     model=model,
                     temperature=temperature,
-                    max_tokens=max_tokens,
+                    max_completion_tokens=max_tokens,
                     **kwargs
                 )
                 responses.append(response)

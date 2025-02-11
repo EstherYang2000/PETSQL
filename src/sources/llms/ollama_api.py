@@ -27,6 +27,7 @@ class OllamaChat:
         """
         try:
             # Send the chat request
+            prompt = f"""Please only output the final sql with this format '''sql <predicted sql here>.''' {prompt}"""
             response: ChatResponse = chat(
                 model=self.model,
                 messages=[
@@ -74,6 +75,7 @@ class OllamaChat:
         responses = []
         for prompt in prompts:
             try:
+                prompt = f"""Please only output the final sql with this format '''sql <predicted sql here>.''' {prompt}"""
                 response: ChatResponse = chat(
                     model=self.model,
                     messages=[

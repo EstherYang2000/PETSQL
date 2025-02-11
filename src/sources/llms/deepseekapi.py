@@ -87,6 +87,7 @@ class GPT:
         responses = []
         for prompt in prompts:
             try:
+                prompt = f"""Please only output the final sql with this format '''sql <predicted sql here>.''' {prompt}"""
                 response = self.__call__(
                     prompt,
                     model=model,
