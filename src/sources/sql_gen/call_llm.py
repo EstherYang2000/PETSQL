@@ -104,7 +104,6 @@ def run_sql_generation(model,
 
     # 2) 初始化對應 model (根據 model 參數)
     llm_instance = None
-    api_key = "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"
     if model == "codellamaapi":
         # llm_instance = CodeLlama(model_name="codellama/CodeLlama-34b-Instruct-hf", max_memory={"cpu": "4GiB", 0: "22GiB"})
         # llm_instance = CodeLlama2(
@@ -117,6 +116,9 @@ def run_sql_generation(model,
             llm_instance = OllamaChat(model="codellama:70b")
     elif model == "phind-codellamaapi":
         llm_instance = OllamaChat(model="phind-codellama")
+    elif model == "mistralapi":
+        if model_version == "small_24b":
+            llm_instance = OllamaChat(model="mistral-small:24b")
     elif model == "qwen_api":
         if model_version == "32b-instruct-fp16":
             llm_instance = OllamaChat(model="qwen2.5-coder:32b-instruct-fp16")
@@ -126,6 +128,7 @@ def run_sql_generation(model,
         if model_version == "3.3":
             llm_instance = OllamaChat(model="llama3.3:latest")
         elif model_version == "3.3_70b_specdec":
+            api_key = os.environ["GROQ_API_KEY"]
             llm_instance = GroqChat(api_key=api_key,model="llama-3.3-70b-specdec")
         # llm_instance = Llama2(model_name="ruslanmv/Meta-Llama-3.1-8B-Text-to-SQL", max_memory={"cpu": "4GiB", 0: "22GiB"})
     elif model == "gptapi":
@@ -138,6 +141,7 @@ def run_sql_generation(model,
         elif model_version == "r1_70b":
             llm_instance = OllamaChat(model="deepseek-r1:70b")
         elif model_version == "r1_distill_llama_70b":
+            api_key = os.environ["GROQ_API_KEY"]
             llm_instance = GroqChat(api_key=api_key,model="deepseek-r1-distill-llama-70b")
         elif model_version == "33b":
             llm_instance = OllamaChat(model="deepseek-coder:33b")
@@ -145,13 +149,6 @@ def run_sql_generation(model,
             llm_instance = OllamaChat(model="deepseek-coder-v2:16b")
         elif model_version == "llm_67b":
             llm_instance = OllamaChat(model="deepseek-llm:67b")
-        # llm_instance = DeepSeek(
-        #     model_name="deepseek-ai/deepseek-coder-33b-instruct",
-        #     max_memory={
-        #         "cpu": "24GiB",
-        #     },
-        #     torch_dtype=torch.float32,
-        # )
     else:
         # 如果要用 huggingface pipeline 作fallback
         initialize_model()
@@ -165,6 +162,7 @@ def run_sql_generation(model,
     print(f"Batch size: {batch_size}")
     # 3) 產生結果
     results = []
+    
     if llm_instance:
         # 有自訂 generate_batch
         if hasattr(llm_instance, "generate_batch"):
@@ -181,7 +179,7 @@ def run_sql_generation(model,
             for i in tqdm(range(0, len(prompts), batch_size), desc="Processing Batches"):
                 batch = prompts[i:i + batch_size]
                 batch_responses = []
-                if model == "deepseekapi" or model == "codellamaapi" or model == "llamaapi" or model == "phind-codellamaapi" or model == "qwen_api":
+                if model == "deepseekapi" or model == "codellamaapi" or model == "llamaapi" or model == "phind-codellamaapi" or model == "qwen_api" or model == "mistralapi":
                     batch_responses = llm_instance.generate_batch(batch)
                 elif model == "gptapi":
                     batch_responses = llm_instance.generate_batch(

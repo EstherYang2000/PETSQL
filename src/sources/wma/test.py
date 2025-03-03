@@ -7,20 +7,10 @@ predict = "data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_20/gpt-3.5-turbo.txt"
 # with open(predict) as f:
 #     plist = [l.strip().split('\t') for l in f.readlines() if len(l.strip()) > 0]
 # print(plist[:1])    
-gold_sql = ["""SELECT DISTINCT T1.Maker 
-                FROM CAR_MAKERS AS T1 
-                JOIN MODEL_LIST AS T2 ON T1.Id  =  T2.Maker 
-                JOIN CAR_NAMES AS T3 ON T2.model  =  T3.model 
-                JOIN CARS_DATA AS T4 ON T3.MakeId  =  T4.id 
-                WHERE T4.year  =  '1970';""",
-            "car_1"]  # This is already in the correct format
+gold_sql = ["""SELECT avg(age) ,  min(age) ,  max(age) FROM singer WHERE country  =  'France'""",
+            "concert_singer"]  # This is already in the correct format
 sql = ["""
-       SELECT DISTINCT cm.Maker 
-        FROM car_makers cm
-        JOIN model_list ml ON cm.Id = ml.Maker
-        JOIN car_names cn ON ml.ModelId = cn.Model
-        JOIN cars_data cd ON cn.MakeId = cd.Id
-        WHERE cd.Year = 1970;
+       SELECT AVG(Age) as Average_Age,MIN(Age) as Minimum_Age,MAX(Age) as Maximum_Age FROM singer WHERE Country = 'France';
        """]
 db = "./data/spider/database"
 etype = "all"

@@ -59,7 +59,6 @@ class GPT:
                 **kwargs
             )
             result = response.choices[0].message.content
-            print(f"Prompt: {prompt}")
             print(f"Model: {use_model}")
             print(f"Result: {result}")
             return result

@@ -27,7 +27,7 @@ def schema_linking_producer(test, train, table, db, dataset_dir, compute_cv_link
     for db_id, schema in schemas.items():
         # sqlite_path = Path(dataset_dir) / db / db_id / f"{db_id}.sqlite"
         sqlite_path = f"{dataset_dir}{db}/{db_id}/{db_id}.sqlite"
-        # print(sqlite_path)
+        print(sqlite_path)
         source: sqlite3.Connection
         with sqlite3.connect(str(sqlite_path)) as source:
             dest = sqlite3.connect(':memory:')
@@ -71,9 +71,14 @@ from sql_metadata import Parser
 proj_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
 
-def add_fk(ppl_test):
-    tables_data = json.load(
-        open("data/spider/tables.json", 'r', encoding='utf-8'))
+def add_fk(ppl_test, dataset_type='dev'):
+    if dataset_type == 'dev':
+        tables_data = json.load(
+            open("data/spider/tables.json", 'r', encoding='utf-8'))
+    elif dataset_type == 'test':
+        tables_data = json.load(
+            open("data/spider/test_tables.json", 'r', encoding='utf-8'))
+        
     forekeys = {}
     anno_simddl = {}
     for db in tables_data:
@@ -118,14 +123,24 @@ def add_fk(ppl_test):
 
 
 
-def gen_ppl_from_json(ppl_filename='data/ppl_dev.json'):
+def gen_ppl_from_json(ppl_filename='data/ppl_dev.json',dataset_type='dev'):
     # Load database table information and development dataset
     print("Loading data...")
     print(proj_dir)
-    tables_data = json.load(
-        open(proj_dir + "/data/spider/tables.json", 'r', encoding='utf-8'))
-    dev_data = json.load(
-        open(proj_dir + "/data/spider/dev.json", 'r', encoding='utf-8'))
+    print("data_type:", dataset_type)
+    if dataset_type == 'dev':
+        print("Loading dev data...")
+        tables_data = json.load(
+            open(proj_dir + "/data/spider/tables.json", 'r', encoding='utf-8'))
+        dev_data = json.load(
+            open(proj_dir + "/data/spider/dev.json", 'r', encoding='utf-8'))
+    elif dataset_type == 'test':
+        print("Loading test data...")
+        tables_data = json.load(
+            open(proj_dir + "/data/spider/test_tables.json", 'r', encoding='utf-8'))
+        dev_data = json.load(
+            open(proj_dir + "/data/spider/test.json", 'r', encoding='utf-8'))
+    
     # Initialize list to store processed test data
     ppl_test = []
     for ix, it in enumerate(dev_data):
@@ -204,7 +219,7 @@ def gen_ppl_from_json(ppl_filename='data/ppl_dev.json'):
             anno_simddl[ppl_test[i]["db"]]) + ".\n"
         ppl_test[i]['full_ddl'] = "\n".join(anno[ppl_test[i]["db"]]) + '\n'
     # Add foreign key information (assuming add_fk is a function that does this)
-    ppl_test = add_fk(ppl_test)
+    ppl_test = add_fk(ppl_test, dataset_type)
     # Save the final data to a JSON file
     json.dump(ppl_test,
               open(ppl_filename, 'w', encoding='utf-8'),
@@ -221,6 +236,7 @@ from sql_metadata import Parser
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", type=str, default="data/spider/")
+    parser.add_argument("--type",  default="dev", type=str, help="dev or test")
     args = parser.parse_args()
 
     # merge two training split of Spider
@@ -242,7 +258,16 @@ if __name__ == '__main__':
     #     dev_name = "dev.json"
     # else:
     #     raise Exception("There is no 'test.json' or 'dev.json' in dataset. Please check the file path.")
-    spider_dev = "dev.json"
+    if args.type == "dev":
+        spider_dev = "dev.json"
+        spider_train = 'train_spider_and_others.json'
+        spider_table = 'tables.json'
+        spider_db = 'database'
+    else:
+        spider_dev = "test.json"
+        spider_train = 'test_spider_and_others.json'
+        spider_table = 'test_tables.json'
+        spider_db = 'test_database'
     # merge two training split of Spider
     spider_dir = args.data_dir
     split1 = "train_spider.json"
@@ -252,11 +277,11 @@ if __name__ == '__main__':
         total_train.append(item)
     for item in json.load(open(os.path.join(spider_dir, split2))):
         total_train.append(item)
-    with open(os.path.join(spider_dir, 'train_spider_and_others.json'), 'w') as f:
+    with open(os.path.join(spider_dir, spider_train), 'w') as f:
         json.dump(total_train, f)
 
 
-    spider_train = 'train_spider_and_others.json'
-    spider_table = 'tables.json'
-    spider_db = 'database'
+    # spider_train = 'train_spider_and_others.json'
+    # spider_table = 'test_tables.json'
+    # spider_db = 'database'
     schema_linking_producer(spider_dev, spider_train, spider_table, spider_db, spider_dir)

@@ -1,14 +1,14 @@
 echo "## Start post processing for codellama_34b-instruct ..."
 sleep 1
 python src/sources/post_process.py \
-    --file data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034/qwen_api_32b-instruct-fp16_api_test.txt \
-    --output data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034/qwen_api_32b-instruct-fp16_api_test_output.txt \
+    --file data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_sl/qwen_api_32b-instruct-fp16_api.txt \
+    --output data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_sl/qwen_api_32b-instruct-fp16_api_output.txt \
     --llm sensechat \
 echo "## Start evaluation for codellama_34b-instruct ..."
 
 python src/sources/evaluation.py \
     --gold ./data/spider/dev_gold.sql  \
-    --pred data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034/qwen2_5_72b_api_output.txt \
+    --pred data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_sl/qwen_api_32b-instruct-fp16_api_output.txt \
     --etype all \
     --db ./data/spider/database \
     --table ./data/spider/tables.json \

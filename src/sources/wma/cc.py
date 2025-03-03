@@ -10,12 +10,7 @@ from itertools import zip_longest
 import sqlparse
 import os
 # 初始化 WMA
-wma = WeightedMajorityAlgorithm(epsilon=0.2)
-
 # 新增專家 (模型)
-wma.add_expert("codellamaapi", init_weight=1.0)
-wma.add_expert("puyuapi", init_weight=1.0)
-wma.add_expert("llamaapi", init_weight=1.0)
 
 def append_json(file_path, new_data):
     """ Append new data to an existing JSON file or create a new one if it doesn't exist. """
@@ -54,32 +49,33 @@ def call_expert(expert_name: str, prompt:str,path_generate:str,end_num_prompts=1
     # 在真實應用中，應將 question 塞入 prompt，呼叫 LLM API。
     # 這裡示範用 if-else 模擬不同模型輸出。
     
-    if expert_name == "codellamaapi":
-        return run_sql_generation(model=expert_name,prompts=[prompt],path_generate=path_generate ,out_file="codellama.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append")
-    elif expert_name == "puyuapi":
-        return run_sql_generation(model=expert_name,prompts=[prompt],path_generate=path_generate, out_file="puyuma.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append")
-    elif expert_name == "gptapi":
-        if model_version == "gpt-3.5-turbo":
-            return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-        elif model_version == "gpt-4":
-            return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-        elif model_version == "gpt-4o":
-            return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-        elif model_version == "o1-preview":
-            return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
+    if expert_name == "gptapi":
+        # if model_version == "gpt-3.5-turbo":
+        #     return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
+        # elif model_version == "gpt-4":
+        #     return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
+        # elif model_version == "gpt-4o":
+        #     return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
+        # elif model_version == "o1-preview":
+        #     return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
+        # elif model_version == "o3-mini":
+        return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
     elif expert_name == "qwen_api":
-        if model_version == "32b-instruct-fp16":
-            return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
+        # if model_version == "32b-instruct-fp16":
+        return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
     elif expert_name == "llamaapi":
-        if model_version == "3.3":
-            return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-        elif model_version == "3.3_70b_specdec":
-            return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
+        # if model_version == "3.3":
+        #     return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
+        # elif model_version == "3.3_70b_specdec":
+        return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
     elif expert_name == "deepseekapi":
-        if model_version == "r1_70b":
-            return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-        elif model_version == "v2-16b":
-            return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
+        # if model_version == "r1_70b":
+        #     return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
+        # elif model_version == "v2-16b":
+        #     return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
+        return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
+    elif expert_name == "mistralapi":
+        # if model_version == "small_24b":
         return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
     else:
         return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file="model.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append")
@@ -128,19 +124,20 @@ def run_sql_generation_wma(input_data,path_generate,start_num_prompts,end_num_pr
     
 
     # 初始化 Weighted Majority Algorithm
-    wma = WeightedMajorityAlgorithm(epsilon=0.2)
+    wma = WeightedMajorityAlgorithm(epsilon=0.005)
 
     # 新增專家 (此處先寫死三位，如有更多可自行增加)
-    # wma.add_expert("codellamaapi", init_weight=1.0)
-    # wma.add_expert("puyuapi", init_weight=1.0)
-    # wma.add_expert("llamaapi", init_weight=1.0)
-    wma.add_expert("gptapi35", init_weight=1.0)
+
+    # wma.add_expert("gptapi35", init_weight=1.0)
     wma.add_expert(f"gptapi4", init_weight=1.0)
     wma.add_expert("gptapi4o", init_weight=1.0)
     wma.add_expert("o1-preview", init_weight=1.0)
-    wma.add_expert("llamaapi_3.3", init_weight=1.0)
-    wma.add_expert("qwen2.5-coderaapi", init_weight=1.0)
-    wma.add_expert("deepseekapi_r1_70b", init_weight=1.0)
+    wma.add_expert("o3-mini", init_weight=1.0)
+    # wma.add_expert("llamaapi_3.3", init_weight=1.0)
+    # wma.add_expert("qwen2.5-coderaapi", init_weight=1.0)
+    # wma.add_expert("deepseekapi_r1_70b", init_weight=1.0)
+    # wma.add_expert("mistralapi", init_weight=1.0)
+    # wma.add_expert("qwen2.5_72b", init_weight=1.0)
     
     # Add validation
     if not input_data:
@@ -155,37 +152,42 @@ def run_sql_generation_wma(input_data,path_generate,start_num_prompts,end_num_pr
     for index,sample in enumerate(input_data):
         print(f"-------------Processing sample {index+start_num_prompts}...-------------")
         # A. 各專家輸出 raw SQL
-        # raw_sql_codellama = call_expert("codellamaapi", sample['prompt'],path_generate)
         # raw_sql_gpt35     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="gpt-3.5-turbo")
-        # raw_sql_gpt4     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="gpt-4")
-        # raw_sql_gpt4o     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="gpt-4o")
-        # raw_sql_gpto1preview     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="o1-preview")
-        raw_sql_llama3_3    = call_expert("llamaapi", sample['prompt'],path_generate,end_num_prompts,model_version="3.3")
-        raw_sql_qwen2_5    = call_expert("qwen_api", sample['prompt'],path_generate,end_num_prompts,model_version="32b-instruct-fp16")
-        raw_sql_deepseek_r1_70b    = call_expert("deepseekapi", sample['prompt'],path_generate,end_num_prompts,model_version="r1_distill_llama_70b")
-        # raw_sql_llama     = call_expert("llamaapi", sample['prompt'],path_generate)
+        raw_sql_gpt4     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="gpt-4")
+        raw_sql_gpt4o     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="gpt-4o")
+        raw_sql_gpto1preview     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="o1-preview")
+        raw_sql_gpto3mini     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="o3-mini")
+        # raw_sql_llama3_3    = call_expert("llamaapi", sample['prompt'],path_generate,end_num_prompts,model_version="3.3")
+        # raw_sql_qwen2_5    = call_expert("qwen_api", sample['prompt'],path_generate,end_num_prompts,model_version="32b-instruct-fp16")
+        # raw_sql_deepseek_r1_70b    = call_expert("deepseekapi", sample['prompt'],path_generate,end_num_prompts,model_version="r1_distill_llama_70b")
+        # raw_sql_small_24b   = call_expert("mistralapi", sample['prompt'],path_generate,end_num_prompts,model_version="small_24b")
+        # raw_sql_qwen2_5_72b    = call_expert("qwen_api", sample['prompt'],path_generate,end_num_prompts,model_version="2_5_72b")
 
         # B. 每位專家的 raw SQL 都先做基礎清洗
-        # clean_sql_codellama = extract_sql(raw_sql_codellama, llm="codellama")
         # clean_sql_gpt35 = sqlparse.format(extract_sql(raw_sql_gpt35, "sensechat").strip(), reindent=False)
-        # clean_sql_gpt4 = sqlparse.format(extract_sql(raw_sql_gpt4, "sensechat").strip(), reindent=False)
-        # clean_sql_gpt4o = sqlparse.format(extract_sql(raw_sql_gpt4o, "sensechat").strip(), reindent=False)
-        # clean_sql_gpto1preview = sqlparse.format(extract_sql(raw_sql_gpto1preview, "sensechat").strip(), reindent=False)
-        clean_sql_llama3_3 = sqlparse.format(extract_sql(raw_sql_llama3_3, "sensechat").strip(), reindent=False)
-        clean_sql_qwen2_5 = sqlparse.format(extract_sql(raw_sql_qwen2_5, "sensechat").strip(), reindent=False)
-        clean_sql_deepseek_r1_70b = sqlparse.format(extract_sql(raw_sql_deepseek_r1_70b, "sensechat").strip(), reindent=False)
-        # clean_sql_llama     = extract_sql(raw_sql_llama,     llm="llama")
+        clean_sql_gpt4 = sqlparse.format(extract_sql(raw_sql_gpt4, "sensechat").strip(), reindent=False)
+        clean_sql_gpt4o = sqlparse.format(extract_sql(raw_sql_gpt4o, "sensechat").strip(), reindent=False)
+        clean_sql_gpto1preview = sqlparse.format(extract_sql(raw_sql_gpto1preview, "sensechat").strip(), reindent=False)
+        clean_sql_gpto3mini = sqlparse.format(extract_sql(raw_sql_gpto3mini, "sensechat").strip(), reindent=False)
+        # clean_sql_llama3_3 = sqlparse.format(extract_sql(raw_sql_llama3_3, "sensechat").strip(), reindent=False)
+        # clean_sql_qwen2_5 = sqlparse.format(extract_sql(raw_sql_qwen2_5, "sensechat").strip(), reindent=False)
+        # clean_sql_deepseek_r1_70b = sqlparse.format(extract_sql(raw_sql_deepseek_r1_70b, "sensechat").strip(), reindent=False)
+        # clean_sql_small_24b = sqlparse.format(extract_sql(raw_sql_small_24b, "sensechat").strip(), reindent=False)
+        # clean_sql_qwen2_5_72b = sqlparse.format(extract_sql(raw_sql_qwen2_5_72b, "sensechat").strip(), reindent=False)
 
         # C. 建立投票用 predictions dict
         predictions = {
             # "codellamaapi": clean_sql_codellama,
             # "gptapi35":      clean_sql_gpt35,
-            # "gptapi4":      clean_sql_gpt4,
-            # "gptapi4o":      clean_sql_gpt4o,
-            # "o1-preview":      clean_sql_gpto1preview,
-            "llamaapi_3.3": clean_sql_llama3_3,
-            "qwen2.5-coderaapi": clean_sql_qwen2_5,
-            "deepseekapi_r1_70b": clean_sql_deepseek_r1_70b
+            "gptapi4":      clean_sql_gpt4,
+            "gptapi4o":      clean_sql_gpt4o,
+            "o1-preview":      clean_sql_gpto1preview,
+            "o3-mini":      clean_sql_gpto3mini,
+            # "llamaapi_3.3": clean_sql_llama3_3,
+            # "qwen2.5-coderaapi": clean_sql_qwen2_5,
+            # "deepseekapi_r1_70b": clean_sql_deepseek_r1_70b,
+            # "mistralapi": clean_sql_small_24b,
+            # "qwen2.5_72b": clean_sql_qwen2_5_72b
             
             # "llamaapi":     clean_sql_llama
         }
@@ -237,24 +239,11 @@ def run_sql_generation_wma(input_data,path_generate,start_num_prompts,end_num_pr
             "best_weight":best_weight,
             "final_sql": final_sql,
         })
-
-            # results.append({
-            #     "question": sample["question"],
-            #     "raw_sql_codellama": raw_sql_codellama,
-            #     "raw_sql_gpt":      raw_sql_gpt,
-            #     "raw_sql_llama":     raw_sql_llama,
-            #     "final_sql":         final_sql_clean,
-            #     "gold_sql":          gold_sql,
-            #     "is_correct":        is_correct,
-            #     "chosen_experts":    chosen_experts,
-            #     "current_weights":   wma.get_weights().copy()
-            # })
-            # Define the output JSON file path
-    final_results_path = os.path.join(path_generate, "final_result.json")
+    final_results_path = os.path.join(path_generate, "final_result_1.json")
     append_json(final_results_path, final_results)
     print(f"Voted results successfully appended to {final_results_path}")
 
-    output_file = os.path.join(path_generate, "results.json")
+    output_file = os.path.join(path_generate, "results_1.json")
     append_json(output_file, results)
     print(f"Results successfully appended to {output_file}")
 
@@ -276,7 +265,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print("Arguments received:", args)
     gold_sql = "./data/spider/dev_gold.sql"
-    path_generate = "data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_2"
+    path_generate = "data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_1"
     start_num_prompts =  0
     end_num_prompts = 1034
     with open(gold_sql) as f:

@@ -152,8 +152,8 @@ class SpiderEncoderV2Preproc(abstract_preproc.AbstractPreproc):
 
     def add_item(self, item, schema, section, validation_info):
         preprocessed = self.preprocess_item(item, schema, validation_info)
-        print("----------------------preprocessed----------------------")
-        print(preprocessed)
+        # print("----------------------preprocessed----------------------")
+        # print(preprocessed)
         self.texts[section].append(preprocessed)
 
     def clear_items(self):
@@ -180,7 +180,7 @@ class SpiderEncoderV2Preproc(abstract_preproc.AbstractPreproc):
             # print("----------------------column_names_without_types----------------------")
             # print(column_names_without_types)
             # Compute schema linking between the question and column/table names
-            print("----------------------compute_schema_linking----------------------")
+            # print("----------------------compute_schema_linking----------------------")
             sc_link = compute_schema_linking(question, column_names_without_types, preproc_schema.table_names)
             # print("----------------------sc_link----------------------")
             # print(sc_link) # {'q_col_match': {'2,8': 'CPM', '2,21': 'CPM'}, 'q_tab_match': {'2,1': 'TEM', '2,3': 'TPM'}}
@@ -191,7 +191,7 @@ class SpiderEncoderV2Preproc(abstract_preproc.AbstractPreproc):
         # Compute cell value linking (cv_link) if specified
         # Cell value linking matches the question tokens with specific cell values in the database
         if self.compute_cv_link:
-            print("----------------------compute_cell_value_linking----------------------")
+            # print("----------------------compute_cell_value_linking----------------------")
             # print(question) # ['how', 'many', 'singer', 'do', 'we', 'have', '?']
             cv_link = compute_cell_value_linking(question, schema)
         else:
@@ -226,9 +226,9 @@ class SpiderEncoderV2Preproc(abstract_preproc.AbstractPreproc):
     def _preprocess_schema(self, schema):
         if schema.db_id in self.preprocessed_schemas:
             return self.preprocessed_schemas[schema.db_id]
-        print("----------------------preprocess_schema_uncached----------------------")
-        print(self.include_table_name_in_column) # False
-        print(self.fix_issue_16_primary_keys) # True
+        # print("----------------------preprocess_schema_uncached----------------------")
+        # print(self.include_table_name_in_column) # False
+        # print(self.fix_issue_16_primary_keys) # True
         result = preprocess_schema_uncached(schema, self._tokenize,
                                             self.include_table_name_in_column, self.fix_issue_16_primary_keys)
         self.preprocessed_schemas[schema.db_id] = result

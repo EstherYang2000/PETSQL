@@ -225,10 +225,10 @@ def formatting_prompt_sl(sample):
         )
     return prompt
 
-def prompt_generation(sample,dataset, kshot, select_type, sl, n,path_generate):
+def prompt_generation(sample,dataset, kshot, select_type, sl, n,path_generate,dataset_type="dev"):
     # 1) 讀取資料
     if not sl:
-        input_data = gen_ppl_from_json(dataset)
+        input_data = gen_ppl_from_json(dataset,dataset_type=dataset_type)
     else:
         with open(args.dataset, 'r', encoding='utf-8') as f:
             input_data = json.load(f)
@@ -278,6 +278,7 @@ if __name__ == '__main__':
     # parser.add_argument("--model_version", type=str, default="none",
     #                 help="Which GPT version to use with gptapi? Options: o1-preview, gpt-4, gpt-4o")
     parser.add_argument("--dataset", type=str, default="ppl_dev.json")
+    parser.add_argument("--dataset_type", type=str, default="dev")
     # parser.add_argument("--out_file", type=str, default="raw.txt")
     parser.add_argument("--kshot", type=int, default=3)
     parser.add_argument("--pool", type=int, default=1)
@@ -289,20 +290,21 @@ if __name__ == '__main__':
     # 解析命令行参数
     args = parser.parse_args()
     # Construct the log directory and file path
-    log_dir = os.path.join(os.path.dirname(__file__), "logs")
-    print(log_dir)
-    log_file_path = os.path.join(log_dir, f"{args.dataset.upper()}-{args.kshot}_SHOT_{args.select_type}_{args.n}.log")
-    print(log_file_path)
-    # Create the logs directory if it does not exist
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    # log_dir = os.path.join(os.path.dirname(__file__), "logs")
+    # print(log_dir)
+    # log_file_path = os.path.join(log_dir, f"{args.dataset.upper()}-{args.kshot}_SHOT_{args.select_type}_{args.n}.log")
+    # print(log_file_path)
+    # # Create the logs directory if it does not exist
+    # if not os.path.exists(log_dir):
+    #     os.makedirs(log_dir)
     
-    logging.basicConfig(filename=log_file_path,
-                        level=logging.INFO,
-                        filemode='w')
-    logger = logging.getLogger()
+    # logging.basicConfig(filename=log_file_path,
+    #                     level=logging.INFO,
+    #                     filemode='w')
+    # logger = logging.getLogger()
+    print("dataset_type: ", args.dataset_type)
     if args.sl == False:
-        input_data = gen_ppl_from_json(args.dataset)
+        input_data = gen_ppl_from_json(args.dataset,dataset_type=args.dataset_type)
     else:
         input_data = json.load(open(args.dataset, 'r'))
     path_generate = f"data/process/{args.dataset.upper()}-{args.kshot}_SHOT_{args.select_type}_{args.n}"
@@ -311,15 +313,15 @@ if __name__ == '__main__':
     print(f"Input data has been saved to {path_generate}")
     print("schema linking: ", args.sl)
     print(args.dataset)
-    prompt_generation(input_data, args.dataset,args.kshot, args.select_type, args.sl, args.n,path_generate)
+    prompt_generation(input_data, args.dataset,args.kshot, args.select_type, args.sl, args.n,path_generate,args.dataset_type)
 
 """
 python src/sources/sql_gen/prompt_gen.py \
-  --dataset ppl_dev.json \
+  --dataset ppl_test.json \
+  --dataset_type test \
   --n 1034 \
   --kshot 9 \
   --select_type Euclidean_mask \
-
 """
     
 

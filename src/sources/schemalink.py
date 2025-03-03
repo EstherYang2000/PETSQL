@@ -36,7 +36,7 @@ def extract_tab_from_sql(item, sample):
 
 if __name__ == '__main__':
     
-    input_data = json.load(open(os.path.dirname(__file__) + "/ppl_dev.json", 'r'))
+    input_data = json.load(open(os.path.dirname(__file__) + "/ppl_test.json", 'r'))
     file_path = os.path.dirname(__file__)
     with open(args.file, 'r') as f:
         clm = f.readlines()

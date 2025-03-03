@@ -33,7 +33,8 @@ def extract_sql(query, llm='sensechat'):
 
     if llm == "sensechat":
         # Handle SenseChat-specific markers and clean the query
-        query = query.replace("### SQL:", "").replace("###", "").replace("#", "")
+        if query:
+            query = query.replace("### SQL:", "").replace("###", "").replace("#", "")
         # Expanded regex patterns for more flexible SQL extraction
         # extraction_patterns = [
         #     # Match SQL within code blocks with various markers
@@ -61,6 +62,7 @@ def extract_sql(query, llm='sensechat'):
             # Fix for triple-single and triple-double quoted SQL blocks
             r"'''(?:SQL|sql|sqlite)?\s*(SELECT\s+[\s\S]*?)'''",
             r'"""(?:SQL|sql|sqlite)?\s*(SELECT\s+[\s\S]*?)"""',
+            r"```(?:SQL|sql|sqlite)?\s*(SELECT\s+[\s\S]*?)'''",
 
             # Fix for triple-backtick SQL blocks
             r"```(?:SQL|sql|sqlite)?\s*(SELECT\s+[\s\S]*?)```",
