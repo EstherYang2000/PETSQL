@@ -255,3 +255,61 @@ def get_sqls(results, select_number, db_dir):
     print("save chosen sqls and results...")
 
     return chosen_p_sqls
+
+
+
+
+# Function to process duplication or remove comments in a SQL query
+def process_duplication_sql(sql):
+    sql = sql.strip().split("#")[0]
+    return sql
+import re
+
+def extract_sql(query, llm='sensechat'):
+    def clean_query(sql):
+            """Helper function to clean up SQL syntax."""
+            return sql.strip().replace('\n', ' ').rstrip('.').strip()
+
+
+    if llm == "sensechat":
+        # Handle SenseChat-specific markers and clean the query
+        if query:
+            query = query.replace("### SQL:", "").replace("###", "").replace("#", "")
+        extraction_patterns = [
+            # More flexible pattern for markdown headers
+            r"\*\*(?:Answer|SQL Query|Final SQL Query|SQL):\*\*\s*(SELECT\s+[\s\S]*?)(?:\n|;|$)",
+
+            # Fix for triple-single and triple-double quoted SQL blocks
+            r"'''(?:SQL|sql|sqlite)?\s*(SELECT\s+[\s\S]*?)'''",
+            r'"""(?:SQL|sql|sqlite)?\s*(SELECT\s+[\s\S]*?)"""',
+            r"```(?:SQL|sql|sqlite)?\s*(SELECT\s+[\s\S]*?)'''",
+
+            # Fix for triple-backtick SQL blocks
+            r"```(?:SQL|sql|sqlite)?\s*(SELECT\s+[\s\S]*?)```",
+            r"\*\*(?:SQL|sql|sqlite)?\s*(SELECT\s+[\s\S]*?)\*\*",
+            # Ensure full SELECT statement is captured, including nested queries
+            # r"(?:###\s*SQL:|</think>|<think>)\s*(SELECT\s+[\s\S]*?(?:;|$))",
+            r"</think>\s*(?:.*?)(SELECT\s+[\s\S]*?(?:;|$))",
+            # r":\s*(SELECT\s+[\s\S]*?(?:;|$))",
+            # r"(SELECT\s+DISTINCT\s+[\s\S]*?(?:;|$))",
+            r"(SELECT\s+[\s\S]*?(?:;|$))"
+        ]
+
+        # Enhanced regex patterns with more flexible matching
+
+        # Try each pattern in order
+        for pattern in extraction_patterns:
+            if not pattern:  # Skip empty patterns
+                continue
+            try:
+                matches = re.findall(pattern, query, re.DOTALL)
+                if matches:
+                    return clean_query(matches[-1])  # Return last match if found
+            except re.error as e:
+                print(f"Regex error in pattern: {pattern} - {e}")  # Debugging log
+        return ""
+        
+    else:
+        # Default case
+        return clean_query(query)
+

@@ -475,7 +475,7 @@ def print_scores(scores, etype):
             print("{:20} {:<20.3f} {:<20.3f} {:<20.3f} {:<20.3f} {:<20.3f}".format(type_, *this_scores))
 
 
-def evaluate(gold, predict, db_dir, etype, kmaps):
+def evaluate(gold, predict, db_dir, etype, kmaps,nums=1034):
     with open(gold) as f:
         glist = [l.strip().split('\t') for l in f.readlines() if len(l.strip()) > 0]
 
@@ -483,6 +483,9 @@ def evaluate(gold, predict, db_dir, etype, kmaps):
         plist = [l.strip().split('\t') for l in f.readlines() if len(l.strip()) > 0]
     # plist = [("select max(Share),min(Share) from performance where Type != 'terminal'", "orchestra")]
     # glist = [("SELECT max(SHARE) ,  min(SHARE) FROM performance WHERE TYPE != 'Live final'", "orchestra")]
+    if nums:
+        plist = plist[:nums]
+        glist = glist[:nums]
     evaluator = Evaluator()
 
     levels = ['easy', 'medium', 'hard', 'extra', 'all']
@@ -1104,6 +1107,7 @@ if __name__ == "__main__":
     parser.add_argument('--db', dest='db', type=str)
     parser.add_argument('--table', dest='table', type=str)
     parser.add_argument('--etype', dest='etype', type=str)
+    parser.add_argument('--nums', dest='nums', type=int, default=1034)
     args = parser.parse_args()
 
     gold = args.gold
@@ -1116,6 +1120,6 @@ if __name__ == "__main__":
 
     kmaps = build_foreign_key_map_from_json(table)
 
-    evaluate(gold, pred, db_dir, etype, kmaps)
+    evaluate(gold, pred, db_dir, etype, kmaps,args.nums)
     
     # evaluate_cc(gold, pred, db_dir, etype, kmaps)

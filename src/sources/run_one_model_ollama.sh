@@ -68,7 +68,7 @@ python src/sources/post_process.py \
 
 python src/sources/evaluation.py \
     --gold ./data/spider/dev_gold.sql  \
-    --pred data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/deepseekapi_r1_distill_llama_70b_output.txt\
+    --pred data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_1/qwen_api_32b-instruct-fp16_cc_output.txt\
     --etype all \
     --db ./data/spider/database \
     --table ./data/spider/tables.json

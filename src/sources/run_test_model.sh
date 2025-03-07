@@ -21,23 +21,30 @@ python src/sources/sql_gen/prompt_gen.py \
 echo "## Start 1st calling LLM ..."
 python src/sources/sql_gen/call_llm.py \
     --path_generate data/process/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034 \
-    --model qwen_api \
-    --model_version 2_5_72b \
-    --out_file qwen_api_2_5_72b.txt \
+    --model mistralapi \
+    --model_version small_24b \
+    --out_file mistralapi_small_24b.json \
+    --dataset_type test \
     --start_num_prompts 0 \
-    --num_prompts 1034 \
+    --end_num_prompts 1034 \
     --batch_size 1 \
-    --call_mode append
-
+    --call_mode append \
+    --n_samples 1
+    
+ 
 
 python src/sources/post_process.py \
-    --file data/process/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034/llamaapi_3.3.txt \
-    --output data/process/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034/llamaapi_3.3_output.txt \
+    --file data/process/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034/mistralapi_small_24b.json \
+    --output data/process/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034/mistralapi_small_24b_output.json \
     --llm sensechat
+python src/sources/extract_sql_output.py \
+    --file data/process/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034/mistralapi_small_24b_output.json \
+    --output data/process/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034/mistralapi_small_24b_output.txt
+
 
 python src/sources/evaluation.py \
     --gold ./data/spider/test_gold.sql  \
-    --pred data/process/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034/llamaapi_3.3_output.txt \
+    --pred data/process/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034/mistralapi_small_24b_output.txt \
     --etype all \
     --db ./data/spider/test_database \
     --table ./data/spider/test_tables.json
@@ -51,7 +58,7 @@ echo "1st round time consume: $EXECUTING_TIME s"
 
 # # 3. schema linking for the first round
 echo "## Start schema linking for the first round ..."
-python src/sources/schemalink.py --output ppl_test_add_sl.json --file data/process/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034/llamaapi_3.3_output.txt
+python src/sources/schemalink.py --output ppl_test_add_sl.json --file data/process/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034/mistralapi_small_24b_output.txt
 
 
 # 4. Second Round of SQL Generation
@@ -67,22 +74,29 @@ python src/sources/sql_gen/prompt_gen.py \
 # echo "## Start 2nd calling LLM ..."
 python src/sources/sql_gen/call_llm.py \
     --path_generate data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034 \
-    --model llamaapi \
-    --model_version 3.3 \
-    --out_file llamaapi_3.3.txt \
+    --model mistralapi \
+    --model_version small_24b \
+    --out_file mistralapi_small_24b.json \
+    --dataset_type test \
     --start_num_prompts 0 \
-    --num_prompts 1034 \
+    --end_num_prompts 1034 \
     --batch_size 1 \
-    --call_mode append
+    --call_mode append \
+    --n_samples 1
+
 
 python src/sources/post_process.py \
-    --file data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/llamaapi_3.3.txt \
-    --output data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/llamaapi_3.3_output.txt \
+    --file data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/qwen_api_32b_instruct_fp16.json \
+    --output data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/qwen_api_32b_instruct_fp16_output.json \
     --llm sensechat
+
+python src/sources/extract_sql_output.py \
+    --file data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/qwen_api_32b_instruct_fp16_output.json \
+    --output data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/qwen_api_32b_instruct_fp16_output.txt
 
 python src/sources/evaluation.py \
     --gold ./data/spider/test_gold.sql  \
-    --pred data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/llamaapi_3.3_output.txt \
+    --pred data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/qwen_api_32b_instruct_fp16_output.txt \
     --etype all \
     --db ./data/spider/test_database \
     --table ./data/spider/test_tables.json

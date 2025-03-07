@@ -1,310 +1,134 @@
-# main.py (示意)
 import json
-
-from wma import WeightedMajorityAlgorithm
-from post_process import extract_sql  # 假設在 post_process.py 中定義
-from evaluation import evaluate_cc,build_foreign_key_map_from_json
-from sql_gen.call_llm import run_sql_generation,load_prompts
-import argparse
-from itertools import zip_longest
-import sqlparse
 import os
-# 初始化 WMA
-# 新增專家 (模型)
+from itertools import zip_longest
+from wma import WeightedMajorityAlgorithm
+from utils.file_utils import load_prompts, append_json
+from evaluation import build_foreign_key_map_from_json, evaluate_cc
+from sql_gen.sql_utils import run_sql_generation, run_refinement_pipeline
+import argparse
 
-def append_json(file_path, new_data):
-    """ Append new data to an existing JSON file or create a new one if it doesn't exist. """
-    # Check if file exists and read existing content
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            try:
-                existing_data = json.load(f)
-                if not isinstance(existing_data, list):
-                    existing_data = [existing_data]  # Ensure it's a list
-            except json.JSONDecodeError:
-                existing_data = []  # If file is empty or corrupt, start fresh
-    else:
-        existing_data = []
 
-    # Append new data
-    if isinstance(new_data, list):
-        existing_data.extend(new_data)
-    else:
-        existing_data.append(new_data)
+def apply_schema_linking(sql_output_file, output_sl_file):
+    os.system(f"python src/sources/schemalink.py --output {output_sl_file} --file {sql_output_file}")
 
-    # Write back to file
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(existing_data, f, indent=4, ensure_ascii=False)
-
-def call_expert(expert_name: str, prompt:str,path_generate:str,end_num_prompts=1034,model_version=None,) -> str:
-    """
-    模擬「呼叫對應模型」並回傳 (可能帶雜訊的) raw SQL。
-    實務中應依照各自 LLM/模型的呼叫流程實作。
-    
-    :param expert_name: 模型/專家名稱 (e.g. "codellamaapi")
-    :param sample: 包含問題等資訊的字典，例如 {"question": "...", "gold_sql": "..."}
-    :return: raw SQL（模型輸出的原始字串）
-    """
-    # question = sample['question']
-    # 在真實應用中，應將 question 塞入 prompt，呼叫 LLM API。
-    # 這裡示範用 if-else 模擬不同模型輸出。
-    
-    if expert_name == "gptapi":
-        # if model_version == "gpt-3.5-turbo":
-        #     return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-        # elif model_version == "gpt-4":
-        #     return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-        # elif model_version == "gpt-4o":
-        #     return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-        # elif model_version == "o1-preview":
-        #     return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-        # elif model_version == "o3-mini":
-        return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-    elif expert_name == "qwen_api":
-        # if model_version == "32b-instruct-fp16":
-        return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-    elif expert_name == "llamaapi":
-        # if model_version == "3.3":
-        #     return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-        # elif model_version == "3.3_70b_specdec":
-        return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-    elif expert_name == "deepseekapi":
-        # if model_version == "r1_70b":
-        #     return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-        # elif model_version == "v2-16b":
-        #     return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-        return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-    elif expert_name == "mistralapi":
-        # if model_version == "small_24b":
-        return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file=f"{expert_name}_{model_version}_cc.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append",model_version=model_version)
-    else:
-        return run_sql_generation(model=expert_name,prompts=[prompt], path_generate=path_generate,out_file="model.txt",num_prompts=end_num_prompts,pool_num=1,call_mode="append")
-"""
-run_sql_generation(
-        model=args.model,
-        path_generate = args.path_generate,
-        prompts = all_prompts,
-        out_file=args.out_file,
-        pool_num=args.pool,
-        model_version=args.model_version,
-        num_prompts=args.num_prompts,
-        call_mode = args.call_mode,
-        batch_size=args.batch_size
-    )
-python src/sources/sql_gen/call_llm.py \
-    --path_generate /home/yyj/Desktop/yyj/thesis/code/PETSQL/data/process/PPL_DEV.JSON-3_SHOT_Euclidean_mask_1034 \
-    --model deepseekapi \
-    --model_version r1_70b \
-    --out_file deepseek_r1_70b_api.txt \
-    --num_prompts 1034 \
-    --batch_size 1
-"""
-def run_sql_generation_wma(input_data,path_generate,start_num_prompts,end_num_prompts):
-    """
-    結合 WeightedMajorityAlgorithm (WMA) 與多位專家模型輸出，最終投票產生 SQL。
-
-    :param input_data: List[dict]，其中每個 dict 至少包含:
-        {
-            "question": str,     # 問題
-            "gold_sql": str      # 正解 SQL (可選，若要判斷正確性/更新權重)
-        }
-    :return: List[dict]，每個元素代表一筆資料的處理結果，包含:
-        {
-            "question": str,
-            "raw_sql_codellama": str,
-            "raw_sql_puyu": str,
-            "raw_sql_llama": str,
-            "final_sql": str,       # 投票+清洗後
-            "gold_sql": str,
-            "is_correct": bool,
-            "chosen_experts": List[str],
-            "current_weights": Dict[str, float]
-        }
-    """
-    
-
-    # 初始化 Weighted Majority Algorithm
+def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num_prompts, dataset_type, n_samples, refinement,round=1):
     wma = WeightedMajorityAlgorithm(epsilon=0.005)
+    expert_list = [
+        {"name": "llamaapi_3.3", "model": "llamaapi", "version": "3.3"},
+    #     {"name": "gpt-4", "model": "gptapi", "version": "gpt-4"},
+    #     {"name": "gpt-4o", "model": "gptapi", "version": "gpt-4o"},
+    #     {"name": "o1-preview", "model": "gptapi", "version": "o1-preview"},
+    #     {"name": "o3-mini", "model": "gptapi", "version": "o3-mini"},
+    #     {"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16"},
+    #     {"name": "mistralapi_small_24b", "model": "mistralapi", "version": "small_24b"},
+    #     {"name": "qwen_api_2_5_72b", "model": "qwen_api", "version": "2_5_72b"},
+    ]
+    for expert in expert_list:
+        wma.add_expert(expert["name"], init_weight=1.0)
 
-    # 新增專家 (此處先寫死三位，如有更多可自行增加)
+    results, final_results = [], []
 
-    # wma.add_expert("gptapi35", init_weight=1.0)
-    wma.add_expert(f"gptapi4", init_weight=1.0)
-    wma.add_expert("gptapi4o", init_weight=1.0)
-    wma.add_expert("o1-preview", init_weight=1.0)
-    wma.add_expert("o3-mini", init_weight=1.0)
-    # wma.add_expert("llamaapi_3.3", init_weight=1.0)
-    # wma.add_expert("qwen2.5-coderaapi", init_weight=1.0)
-    # wma.add_expert("deepseekapi_r1_70b", init_weight=1.0)
-    # wma.add_expert("mistralapi", init_weight=1.0)
-    # wma.add_expert("qwen2.5_72b", init_weight=1.0)
-    
-    # Add validation
-    if not input_data:
-        raise ValueError("input_data cannot be empty")
-        
-    for sample in input_data:
-        if 'prompt' not in sample or not sample['prompt']:
-            raise ValueError(f"Invalid sample, missing or empty prompt: {sample}")
-    results = []
-    final_results = []
+    for index, sample in enumerate(input_data):
+        predictions = {}
+        db_path = f"./data/spider/database/{sample['db']}/{sample['db']}.sqlite"
+        for expert in expert_list:
+            raw_sql_output = run_sql_generation(
+                model=expert["model"],
+                prompts=[sample['prompt']],
+                path_generate=path_generate,
+                out_file=f"{expert['model']}_{expert['version']}_cc.json",
+                end_num_prompts=end_num_prompts,
+                call_mode="append",
+                model_version=expert['version'],
+                n_samples=n_samples,
+                question_index=start_num_prompts + index
+            )
 
-    for index,sample in enumerate(input_data):
-        print(f"-------------Processing sample {index+start_num_prompts}...-------------")
-        # A. 各專家輸出 raw SQL
-        # raw_sql_gpt35     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="gpt-3.5-turbo")
-        raw_sql_gpt4     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="gpt-4")
-        raw_sql_gpt4o     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="gpt-4o")
-        raw_sql_gpto1preview     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="o1-preview")
-        raw_sql_gpto3mini     = call_expert("gptapi", sample['prompt'],path_generate,end_num_prompts,model_version="o3-mini")
-        # raw_sql_llama3_3    = call_expert("llamaapi", sample['prompt'],path_generate,end_num_prompts,model_version="3.3")
-        # raw_sql_qwen2_5    = call_expert("qwen_api", sample['prompt'],path_generate,end_num_prompts,model_version="32b-instruct-fp16")
-        # raw_sql_deepseek_r1_70b    = call_expert("deepseekapi", sample['prompt'],path_generate,end_num_prompts,model_version="r1_distill_llama_70b")
-        # raw_sql_small_24b   = call_expert("mistralapi", sample['prompt'],path_generate,end_num_prompts,model_version="small_24b")
-        # raw_sql_qwen2_5_72b    = call_expert("qwen_api", sample['prompt'],path_generate,end_num_prompts,model_version="2_5_72b")
+            if refinement:
+                refined_candidates = run_refinement_pipeline(
+                    db_path, sample['prompt'], raw_sql_output, path_generate, end_num_prompts, expert['model'], expert['version']
+                )
+                refined_candidates[0]['sql_candidates'] = list(set(refined_candidates[0]['sql_candidates']))
+                predictions[expert['name']] = refined_candidates[0]['sql_candidates']
 
-        # B. 每位專家的 raw SQL 都先做基礎清洗
-        # clean_sql_gpt35 = sqlparse.format(extract_sql(raw_sql_gpt35, "sensechat").strip(), reindent=False)
-        clean_sql_gpt4 = sqlparse.format(extract_sql(raw_sql_gpt4, "sensechat").strip(), reindent=False)
-        clean_sql_gpt4o = sqlparse.format(extract_sql(raw_sql_gpt4o, "sensechat").strip(), reindent=False)
-        clean_sql_gpto1preview = sqlparse.format(extract_sql(raw_sql_gpto1preview, "sensechat").strip(), reindent=False)
-        clean_sql_gpto3mini = sqlparse.format(extract_sql(raw_sql_gpto3mini, "sensechat").strip(), reindent=False)
-        # clean_sql_llama3_3 = sqlparse.format(extract_sql(raw_sql_llama3_3, "sensechat").strip(), reindent=False)
-        # clean_sql_qwen2_5 = sqlparse.format(extract_sql(raw_sql_qwen2_5, "sensechat").strip(), reindent=False)
-        # clean_sql_deepseek_r1_70b = sqlparse.format(extract_sql(raw_sql_deepseek_r1_70b, "sensechat").strip(), reindent=False)
-        # clean_sql_small_24b = sqlparse.format(extract_sql(raw_sql_small_24b, "sensechat").strip(), reindent=False)
-        # clean_sql_qwen2_5_72b = sqlparse.format(extract_sql(raw_sql_qwen2_5_72b, "sensechat").strip(), reindent=False)
+        gold_sql = sample.get("gold_sql")
+        if gold_sql:
+            table = "./data/spider/tables.json" if dataset_type == "dev" else "./data/spider/test_tables.json"
+            kmaps = build_foreign_key_map_from_json(table)
+            db = "./data/spider/database" if dataset_type == "dev" else "./data/spider/test_database"
 
-        # C. 建立投票用 predictions dict
-        predictions = {
-            # "codellamaapi": clean_sql_codellama,
-            # "gptapi35":      clean_sql_gpt35,
-            "gptapi4":      clean_sql_gpt4,
-            "gptapi4o":      clean_sql_gpt4o,
-            "o1-preview":      clean_sql_gpto1preview,
-            "o3-mini":      clean_sql_gpto3mini,
-            # "llamaapi_3.3": clean_sql_llama3_3,
-            # "qwen2.5-coderaapi": clean_sql_qwen2_5,
-            # "deepseekapi_r1_70b": clean_sql_deepseek_r1_70b,
-            # "mistralapi": clean_sql_small_24b,
-            # "qwen2.5_72b": clean_sql_qwen2_5_72b
-            
-            # "llamaapi":     clean_sql_llama
-        }
-        # print(predictions)
-        
-        # E. 再次清洗(可選)，讓 final_sql 更乾淨
-        # final_sql_clean = extract_sql(final_sql_voted, llm="codellama")
-        # 若想用其他 llm 方式清洗，可自行替換
-        # final_sql_clean = extract_sql(final_sql_voted, llm="gpt")
+            is_correct_any = False
+            for expert, sql_list in predictions.items():
+                for candidate_sql in sql_list:
+                    if evaluate_cc(gold_sql, [candidate_sql], db, "all", kmaps):
+                        is_correct_any = True
+                        break
+                wma.update_weights(expert, is_correct_any)
 
-        # # F. 判斷是否正確
-        is_correct_dict = {}
-        for experts,sql in predictions.items():
-            print(experts,sql)
-            gold_sql = sample.get("gold_sql")
-            is_correct = False
-            if gold_sql:
-                # 也可先對 gold_sql 做同樣的 extract_sql 以確保大小寫或符號一致
-                # gold_sql_clean = extract_sql(gold_sql, llm="codellama")
-                # is_correct = (final_sql_clean.strip().lower() == gold_sql_clean.strip().lower())
-                # Evaluate predictions
-                db = "./data/spider/database"
-                etype = "all"
-                table = "./data/spider/tables.json"
-                kmaps = build_foreign_key_map_from_json(table)               
-                is_correct = evaluate_cc(gold_sql, [sql], db, etype, kmaps)
-                is_correct_dict[experts] = is_correct
-        # # G. 更新專家權重（若該輪答錯，就衰減 chosen_experts）
-                wma.update_weights(experts, is_correct)
-                # current_weight = wma.get_expert_weight(experts)
-            # C. 根據更新後的權重進行加權投票
-            final_sql, chosen_experts, best_weight = wma.weighted_majority_vote(predictions)
-            # # H. 紀錄結果
+        final_sql, chosen_experts, best_weight = wma.weighted_majority_vote(predictions)
         results.append({
-            "index": index+start_num_prompts,
+            "index": index + start_num_prompts,
             "question": sample["question"],
-            # "experts_model": experts,
-            "gold_sql":  gold_sql,
-            "predicted_sql": predictions,
+            "gold_sql": gold_sql,
             "final_sql": final_sql,
             "chosen_experts": chosen_experts,
-            "is_correct": is_correct_dict,
+            "is_correct": is_correct_any,
             "current_weights": wma.get_weights()
         })
-        # 保存最終結果到 JSON 結構
         final_results.append({
-            "index": index+start_num_prompts,
-            "chosen_expert": chosen_experts,
-            "best_weight":best_weight,
+            "index": index + start_num_prompts,
             "final_sql": final_sql,
+            "chosen_expert": chosen_experts,
+            "best_weight": best_weight
         })
-    final_results_path = os.path.join(path_generate, "final_result_1.json")
-    append_json(final_results_path, final_results)
-    print(f"Voted results successfully appended to {final_results_path}")
 
-    output_file = os.path.join(path_generate, "results_1.json")
-    append_json(output_file, results)
-    print(f"Results successfully appended to {output_file}")
+    append_json(os.path.join(path_generate, f"final_result_{round}.json"), final_results)
+    append_json(os.path.join(path_generate, f"results_{round}.json"), results)
 
-    return results
     
-
-if __name__ == '__main__':
-    # 创建 ArgumentParser 对象
+if __name__ == "__main__":
+    
     parser = argparse.ArgumentParser(description="Call LLM on prompts and output results.")
-    parser.add_argument("--path_generate", type=str, help="Path to the generated raw file.")
-    parser.add_argument("--out_file", type=str, default="raw_cc.txt", help="Output file name.")
-    parser.add_argument("--gold", type=str, help="Path to gold SQL.")
-    parser.add_argument("--pool", type=int, default=1, help="Number of threads in the pool (default: 1).")
+    parser.add_argument("--path_generate", type=str,
+                        help="Path to the generated raw file.")
+    parser.add_argument("--dataset_type", type=str,
+                        help="",default="dev")
+    parser.add_argument("--gold", type=str, default="data/spider/dev_gold.sql")
     parser.add_argument("--start_num_prompts", type=int, default=0)
-    parser.add_argument("--end_num_prompts", type=int, default=1034, help="Number of prompts to process (default: all).")
-    parser.add_argument("--call_mode", type=str, default="write", help="Mode to write or append.")
-
-
+    parser.add_argument("--end_num_prompts", type=int, default=1034,
+                        help="Number of prompts to process from the prompt file (if not specified, take all).")
+    parser.add_argument("--call_mode", type=str, default="write",
+                        help="mode to write or append")
+    parser.add_argument("--n_samples", type=int, default=1,
+                        help="Number of samples to generate for each prompt.")
+    parser.add_argument("--refinement", action="store_true",
+                    help="whether to do refinement")
+    parser.add_argument("--rounds",type=int, default=1)
     args = parser.parse_args()
-    print("Arguments received:", args)
-    gold_sql = "./data/spider/dev_gold.sql"
-    path_generate = "data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_1"
-    start_num_prompts =  0
-    end_num_prompts = 1034
-    with open(gold_sql) as f:
+    
+    path_generate = args.path_generate
+    start_num_prompts = args.start_num_prompts
+    end_num_prompts = args.end_num_prompts
+    n_samples = args.n_samples
+    dataset_type = args.dataset_type
+    refinement = args.refinement
+    round = args.rounds
+    gold = args.gold
+
+    with open(gold) as f:
         glist = [l.strip().split('\t') for l in f.readlines() if len(l.strip()) > 0]
-    question_path = os.path.join(path_generate,"questions.json")
+
+    question_path = os.path.join(path_generate, "questions.json")
     with open(question_path) as f:
         questions = json.load(f)
-    print(len(glist),len(questions))
-    # all_prompts = load_prompts(args.path_generate,start_num_prompts = args.start_num_prompts,num_prompts=args.num_prompts)
 
-    all_prompts = load_prompts(path_generate,start_num_prompts = start_num_prompts,num_prompts=end_num_prompts)
-    input_data = []
-    input_data = [{"prompt": prompt, "gold_sql": golden,"question":questions['question']} for prompt, golden,questions in zip_longest(all_prompts, glist[start_num_prompts:end_num_prompts],questions[start_num_prompts:end_num_prompts], fillvalue=None)]
-    print(len(input_data))
-    # print(input_data[0])
-    # # 執行多專家投票 + WMA流程
-    results = run_sql_generation_wma(input_data,path_generate,start_num_prompts,end_num_prompts)
+    all_prompts = load_prompts(path_generate, start_num_prompts, end_num_prompts)
+    input_data = [
+        {"prompt": p, "gold_sql": g, "question": q['question'], "db": q['db']}
+        for p, g, q in zip_longest(all_prompts, glist[start_num_prompts:end_num_prompts], questions[start_num_prompts:end_num_prompts])
+    ]
+    # first round
+    run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num_prompts, dataset_type, n_samples, refinement,round=1)
 
-    # # 查看結果
-    # for idx, r in enumerate(results, start=1):
-    #     print(f"\n--- Sample {idx} ---")
-    #     print("Question:", r["question"])
-    #     print("Raw codellama SQL:", r["raw_sql_codellama"])
-    #     print("Raw puyu SQL:     ", r["raw_sql_puyu"])
-    #     print("Raw llama SQL:    ", r["raw_sql_llama"])
-    #     print("Final Clean SQL:  ", r["final_sql"])
-    #     print("Gold SQL:         ", r["gold_sql"])
-    #     print("Correct?          ", r["is_correct"])
-    #     print("Chosen Experts:   ", r["chosen_experts"])
-    #     print("Current Weights:  ", r["current_weights"])
     
-"""
-python src/sources/wma/cc.py \
-    --path_generate data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034 \
-    --gold ./data/spider/dev_gold.sql \
-    --start_num_prompts 0 \
-    --end_num_prompts 1 \
-    --call_mode "append"
-
-
-"""    
 

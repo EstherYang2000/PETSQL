@@ -53,28 +53,34 @@ class WeightedMajorityAlgorithm:
         Perform a weighted majority vote where each expert provides a single SQL.
         
         :param predictions_dict: dict
-            { "expert_name1": "SQL1", "expert_name2": "SQL2", ... }
+            { 
+                "expert_1": ["SQL A", "SQL B"],
+                "expert_2": ["SQL B", "SQL C"],
+                ...
+            }
         :return: (best_sql, chosen_experts, best_weight)
-            - best_sql: SQL with the highest total weight.
-            - chosen_experts: List of experts who predicted the best_sql.
-            - best_weight: Total weight of the best_sql.
+            - best_sql: 獲勝SQL
+            - chosen_experts: 推薦這條SQL的專家列表
+            - best_weight: 這條SQL累積的總加權分數
         """
         sql_to_weight = {}
         sql_to_experts = {}
 
         # Accumulate weights for each SQL
-        for expert_name, sql_str in predictions_dict.items():
-            weight = self.experts.get(expert_name, 1.0)
-            if sql_str not in sql_to_weight:
-                sql_to_weight[sql_str] = 0.0
-                sql_to_experts[sql_str] = []
-            sql_to_weight[sql_str] += weight
-            sql_to_experts[sql_str].append(expert_name)
+        for expert_name, sql_list in predictions_dict.items():
+            expert_weight = self.experts.get(expert_name, 1.0)
+            # 每條候選SQL都獲得該專家的全部權重 (Group Voting)
+            for sql_str in sql_list:
+                if sql_str not in sql_to_weight:
+                    sql_to_weight[sql_str] = 0.0
+                    sql_to_experts[sql_str] = []
+                sql_to_weight[sql_str] += expert_weight
+                sql_to_experts[sql_str].append(expert_name)
 
-        # Find the SQL with the highest weight
+        # 選出加權分數最高的SQL
         best_sql = max(sql_to_weight, key=sql_to_weight.get)
         best_weight = sql_to_weight[best_sql]
-        chosen_experts = sql_to_experts[best_sql]
+        chosen_experts = list(set(sql_to_experts[best_sql]))
 
         return best_sql, chosen_experts, best_weight
 
