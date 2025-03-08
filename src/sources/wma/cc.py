@@ -2,7 +2,7 @@ import json
 import os
 from itertools import zip_longest
 from wma import WeightedMajorityAlgorithm
-from utils.file_utils import load_prompts, append_json
+from utils.file_utils import load_prompts, append_json,write_txt
 from evaluation import build_foreign_key_map_from_json, evaluate_cc
 from sql_gen.sql_utils import run_sql_generation, run_refinement_pipeline
 import argparse
@@ -85,6 +85,11 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
     append_json(os.path.join(path_generate, f"final_result_{round}.json"), final_results)
     append_json(os.path.join(path_generate, f"results_{round}.json"), results)
 
+    # convert to txt
+    final_sql_statements = [entry["final_sql"] for entry in final_results]
+    file_txt = os.path.join(path_generate, f"final_sql_{round}.txt")
+    write_txt(file_txt, final_sql_statements)
+    print(f"Final SQLs written to {file_txt}")
     
 if __name__ == "__main__":
     

@@ -100,3 +100,11 @@ python src/sources/evaluation.py \
     --etype all \
     --db ./data/spider/test_database \
     --table ./data/spider/test_tables.json
+
+
+python src/sources/evaluation.py \
+    --gold ./data/spider/dev_gold.sql  \
+    --pred data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/final_sql_1.txt \
+    --etype all \
+    --db ./data/spider/database \
+    --table ./data/spider/tables.json

@@ -82,7 +82,16 @@ def refine_sql_candidates(prompt: str, raw_sql_candidates: list, expert_name: st
     
     for raw_sql in raw_sql_candidates:
         clean_sql = format_sql(raw_sql)
+        # Validate SQL syntax using sqlparse before executing
+        try:
+            parsed = sqlparse.parse(clean_sql)
+            if not parsed:
+                raise ValueError(f"SQL parsing failed: {clean_sql}")
+        except Exception as e:
+            print(f"[ERROR] SQL parsing failed before execution: {e}")
+            continue
         success, error_message = execute_sql(clean_sql, db_path)
+        
         print(f"clean_sql : {clean_sql}")
         print(f"status : {success}")
         print(f"message : {error_message}")

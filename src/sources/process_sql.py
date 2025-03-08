@@ -149,10 +149,30 @@ def tokenize(string):
 
 def scan_alias(toks):
     """Scan the index of 'as' and build the map for all alias"""
-    as_idxs = [idx for idx, tok in enumerate(toks) if tok == 'as']
+    # as_idxs = [idx for idx, tok in enumerate(toks) if tok == 'as']
+    # alias = {}
+    # for idx in as_idxs:
+    #     alias[toks[idx+1]] = toks[idx-1]
+    # return alias
     alias = {}
-    for idx in as_idxs:
-        alias[toks[idx+1]] = toks[idx-1]
+    i = 0
+    
+    while i < len(toks) - 1:
+        # Check for explicit alias with AS keyword
+        if toks[i].lower() == 'as' and i > 0 and i + 1 < len(toks):
+            alias[toks[i + 1]] = toks[i - 1]
+            i += 2
+        # Check for implicit alias (table followed directly by an alias identifier)
+        elif (i > 0 and toks[i-1].lower() in ['from', 'join'] or 
+              i > 1 and toks[i-2].lower() in ['from', 'join']) and i + 1 < len(toks):
+            if toks[i+1].isidentifier() and not toks[i+1].lower() in ['where', 'on', 'as', 'join', 'and', 'or']:
+                alias[toks[i+1]] = toks[i]
+                i += 2
+            else:
+                i += 1
+        else:
+            i += 1
+    
     return alias
 
 
@@ -560,3 +580,19 @@ def skip_semicolon(toks, start_idx):
     while idx < len(toks) and toks[idx] == ";":
         idx += 1
     return idx
+
+
+if __name__ == "__main__":
+    import os
+    db_dir = "data/spider/database"
+    db = "concert_singer"
+    db = os.path.join(db_dir, db, db + ".sqlite")
+    schema = Schema(get_schema(db))
+    p_str = "SELECT s.Song_Name FROM singer s WHERE s.Age > (SELECT AVG(Age) FROM singer) ORDER BY s.Song_Name"
+    try:
+        p_sql = get_sql(schema, p_str)
+    except Exception as e:
+        # If p_sql is not valid, it is incorrect
+        print(f"Error parsing SQL: {e}")
+        all_correct = False
+        
