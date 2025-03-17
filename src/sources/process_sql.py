@@ -149,38 +149,42 @@ def tokenize(string):
 
 def scan_alias(toks):
     """Scan the index of 'as' and build the map for all alias"""
+    
     # as_idxs = [idx for idx, tok in enumerate(toks) if tok == 'as']
     # alias = {}
     # for idx in as_idxs:
     #     alias[toks[idx+1]] = toks[idx-1]
     # return alias
+    
     alias = {}
     i = 0
     
     while i < len(toks) - 1:
-        # Check for explicit alias with AS keyword
+        # Handle explicit aliasing with AS keyword
         if toks[i].lower() == 'as' and i > 0 and i + 1 < len(toks):
             alias[toks[i + 1]] = toks[i - 1]
             i += 2
-        # Check for implicit alias (table followed directly by an alias identifier)
-        elif (i > 0 and toks[i-1].lower() in ['from', 'join'] or 
-              i > 1 and toks[i-2].lower() in ['from', 'join']) and i + 1 < len(toks):
-            if toks[i+1].isidentifier() and not toks[i+1].lower() in ['where', 'on', 'as', 'join', 'and', 'or']:
+            continue
+            
+        # Handle implicit aliasing (after FROM or JOIN)
+        if i > 0 and toks[i-1].lower() in ['from', 'join']:
+            # Make sure the next token isn't a SQL keyword
+            if (i + 1 < len(toks) and 
+                toks[i+1].lower() not in ['where', 'group', 'order', 'having', 'limit', 'union', 'intersect', 'except', 'and', 'or', 'join', 'on', 'as']):
                 alias[toks[i+1]] = toks[i]
                 i += 2
-            else:
-                i += 1
-        else:
-            i += 1
-    
+                continue
+        
+        i += 1
     return alias
 
 
 def get_tables_with_alias(schema, toks):
     tables = scan_alias(toks)
     for key in schema:
-        assert key not in tables, "Alias {} has the same name in table".format(key)
-        tables[key] = key
+        # assert key not in tables, "Alias {} has the same name in table".format(key)
+        if key not in tables:
+            tables[key] = key
     return tables
 
 
@@ -199,11 +203,15 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
 
     assert default_tables is not None and len(default_tables) > 0, "Default tables should not be None or empty"
 
+    # Case-insensitive column name matching
+    tok_lower = tok.lower()
     for alias in default_tables:
         table = tables_with_alias[alias]
-        if tok in schema.schema[table]:
-            key = table + "." + tok
-            return start_idx+1, schema.idMap[key]
+        # Check if column exists in schema (case-insensitive)
+        for col in schema.schema[table]:
+            if tok_lower == col.lower():
+                key = table + "." + col
+                return start_idx+1, schema.idMap[key]
 
     assert False, "Error col: {}".format(tok)
 
@@ -326,36 +334,91 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
     len_ = len(toks)
     conds = []
 
+    print(f"🔍 Entering parse_condition at index {idx} with tokens: {toks[idx:]}")
+
     while idx < len_:
-        idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
-        not_op = False
-        if toks[idx] == 'not':
-            not_op = True
+        is_grouped = False  # Track if this is a grouped condition (inside parentheses)
+
+        if toks[idx] == "(":  # Handle grouped conditions
+            print(f"📌 Detected opening parenthesis at index {idx}")
+            is_grouped = True
+            idx += 1  # Move past '('
+            sub_conds = []  # Store grouped conditions
+
+            while idx < len_ and toks[idx] != ")":
+                idx, sub_cond = parse_condition(toks, idx, tables_with_alias, schema, default_tables)
+                sub_conds.append(sub_cond)
+
+                # Handle AND/OR inside grouped condition
+                if idx < len_ and toks[idx] in COND_OPS:
+                    sub_conds.append(toks[idx])
+                    idx += 1  # Skip AND/OR
+
+            assert toks[idx] == ")", f"❌ Expected closing parenthesis but got {toks[idx]}"
+            print(f"📌 Detected closing parenthesis at index {idx}")
+            idx += 1  # Move past ')'
+            conds.append(sub_conds)  # Add the grouped condition as a nested structure
+        else:
+            # Parse normal condition
+            idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+
+            not_op = False
+            if idx < len_ and toks[idx] == "not":  # Handle 'NOT IN' or 'IS NOT NULL'
+                not_op = True
+                idx += 1
+
+            assert idx < len_ and toks[idx] in WHERE_OPS, f"❌ Error: Unexpected token {toks[idx]} in WHERE clause"
+            op_id = WHERE_OPS.index(toks[idx])
             idx += 1
+            val1 = val2 = None
 
-        assert idx < len_ and toks[idx] in WHERE_OPS, "Error condition: idx: {}, tok: {}".format(idx, toks[idx])
-        op_id = WHERE_OPS.index(toks[idx])
-        idx += 1
-        val1 = val2 = None
-        if op_id == WHERE_OPS.index('between'):  # between..and... special case: dual values
-            idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-            assert toks[idx] == 'and'
-            idx += 1
-            idx, val2 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-        else:  # normal case: single value
-            idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-            val2 = None
+            if op_id == WHERE_OPS.index("between"):  # Handle BETWEEN a AND b
+                idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                assert toks[idx] == "and"
+                idx += 1
+                idx, val2 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+            elif op_id == WHERE_OPS.index("in"):  # Handle IN (x, y, z) or IN (SELECT ...)
+                assert idx < len_ and toks[idx] == "(", f"❌ Expected '(' after 'IN', but got {toks[idx]}"
+                idx += 1
+                if idx < len_ and toks[idx] == "select":  # Handling subquery in IN clause
+                    idx, val1 = parse_sql(toks, idx, tables_with_alias, schema)
+                else:
+                    val_list = []
+                    while idx < len_ and toks[idx] != ")":
+                        idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                        val_list.append(val)
+                        if toks[idx] == ",":
+                            idx += 1  # Skip comma
+                    assert toks[idx] == ")"
+                    idx += 1  # Skip closing ')'
+                    val1 = val_list
+            elif op_id == WHERE_OPS.index("is") and idx < len_ and toks[idx] == "not":  # Handle IS NOT NULL
+                idx += 1
+                assert idx < len_ and toks[idx] == "null", f"❌ Expected 'null' after 'IS NOT', but got {toks[idx]}"
+                val1 = "NULL"
+                not_op = True  # Treat as "IS NOT NULL"
+                idx += 1
+            else:  # Normal case: single value
+                idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                val2 = None
 
-        conds.append((not_op, op_id, val_unit, val1, val2))
+            conds.append((not_op, op_id, val_unit, val1, val2))
 
+        # Handle AND/OR after condition
+        if idx < len_ and toks[idx] in COND_OPS:
+            conds.append(toks[idx])
+            idx += 1  # Skip AND/OR
+
+        # Stop parsing if next token is the start of a new clause (e.g., GROUP BY)
         if idx < len_ and (toks[idx] in CLAUSE_KEYWORDS or toks[idx] in (")", ";") or toks[idx] in JOIN_KEYWORDS):
             break
 
-        if idx < len_ and toks[idx] in COND_OPS:
-            conds.append(toks[idx])
-            idx += 1  # skip and/or
-
+    print(f"✅ Parsed conditions: {conds}")
     return idx, conds
+
+
+
+
 
 
 def parse_select(toks, start_idx, tables_with_alias, schema, default_tables=None):
@@ -427,6 +490,9 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
 
 
 def parse_where(toks, start_idx, tables_with_alias, schema, default_tables):
+    print(f"🔍 Parsing WHERE clause at index {start_idx} with tokens: {toks[start_idx:]}")
+    print(f"🔍 Default Tables: {default_tables}")
+    
     idx = start_idx
     len_ = len(toks)
 
@@ -434,7 +500,13 @@ def parse_where(toks, start_idx, tables_with_alias, schema, default_tables):
         return idx, []
 
     idx += 1
-    idx, conds = parse_condition(toks, idx, tables_with_alias, schema, default_tables)
+    try:
+        idx, conds = parse_condition(toks, idx, tables_with_alias, schema, default_tables)
+    except Exception as e:
+        print(f"❌ Error in parse_where: {e}")
+        raise
+
+    print(f"✅ WHERE conditions parsed: {conds}")
     return idx, conds
 
 
@@ -512,53 +584,95 @@ def parse_limit(toks, start_idx):
 
 
 def parse_sql(toks, start_idx, tables_with_alias, schema):
-    isBlock = False # indicate whether this is a block of sql/sub-sql
-    len_ = len(toks)
-    idx = start_idx
+    print(f"Parsing SQL from tokens: {toks[start_idx:]}")
+    print(f"Using tables_with_alias: {tables_with_alias}")
 
-    sql = {}
-    if toks[idx] == '(':
-        isBlock = True
-        idx += 1
+    try:
+        isBlock = False  # indicate whether this is a block of sql/sub-sql
+        len_ = len(toks)
+        idx = start_idx
 
-    # parse from clause in order to get default tables
-    from_end_idx, table_units, conds, default_tables = parse_from(toks, start_idx, tables_with_alias, schema)
-    sql['from'] = {'table_units': table_units, 'conds': conds}
-    # select clause
-    _, select_col_units = parse_select(toks, idx, tables_with_alias, schema, default_tables)
-    idx = from_end_idx
-    sql['select'] = select_col_units
-    # where clause
-    idx, where_conds = parse_where(toks, idx, tables_with_alias, schema, default_tables)
-    sql['where'] = where_conds
-    # group by clause
-    idx, group_col_units = parse_group_by(toks, idx, tables_with_alias, schema, default_tables)
-    sql['groupBy'] = group_col_units
-    # having clause
-    idx, having_conds = parse_having(toks, idx, tables_with_alias, schema, default_tables)
-    sql['having'] = having_conds
-    # order by clause
-    idx, order_col_units = parse_order_by(toks, idx, tables_with_alias, schema, default_tables)
-    sql['orderBy'] = order_col_units
-    # limit clause
-    idx, limit_val = parse_limit(toks, idx)
-    sql['limit'] = limit_val
+        sql = {}
+        if toks[idx] == '(':
+            isBlock = True
+            idx += 1
 
-    idx = skip_semicolon(toks, idx)
-    if isBlock:
-        assert toks[idx] == ')'
-        idx += 1  # skip ')'
-    idx = skip_semicolon(toks, idx)
+        # First find and parse FROM clause to get default tables
+        from_start_idx = idx
+        while from_start_idx < len_ and toks[from_start_idx].lower() != 'from':
+            from_start_idx += 1
 
-    # intersect/union/except clause
-    for op in SQL_OPS:  # initialize IUE
-        sql[op] = None
-    if idx < len_ and toks[idx] in SQL_OPS:
-        sql_op = toks[idx]
-        idx += 1
-        idx, IUE_sql = parse_sql(toks, idx, tables_with_alias, schema)
-        sql[sql_op] = IUE_sql
-    return idx, sql
+        if from_start_idx < len_:  # Found FROM clause
+            print("Found FROM clause at index:", from_start_idx)
+            from_end_idx, table_units, conds, default_tables = parse_from(toks, from_start_idx, tables_with_alias, schema)
+        else:  # No FROM clause found
+            print("No FROM clause found.")
+            from_end_idx = len_
+            table_units, conds, default_tables = [], [], schema.schema.keys()
+
+        sql['from'] = {'table_units': table_units, 'conds': conds}
+
+        # Now parse SELECT clause - start from the original index
+        select_idx = idx
+        while select_idx < len_ and toks[select_idx].lower() != 'select':
+            select_idx += 1
+
+        if select_idx < len_:  # Found SELECT clause
+            print("Found SELECT clause at index:", select_idx)
+            next_idx, select_col_units = parse_select(toks, select_idx, tables_with_alias, schema, default_tables)
+            sql['select'] = select_col_units
+        else:
+            sql['select'] = (False, [])
+
+        # Continue parsing from after the FROM clause
+        idx = from_end_idx
+
+        # WHERE clause
+        print("Checking for WHERE clause at index:", idx)
+        idx, where_conds = parse_where(toks, idx, tables_with_alias, schema, default_tables)
+        sql['where'] = where_conds
+        print("WHERE conditions:", where_conds)
+
+        # GROUP BY clause
+        print("Checking for GROUP BY clause at index:", idx)
+        idx, group_col_units = parse_group_by(toks, idx, tables_with_alias, schema, default_tables)
+        sql['groupBy'] = group_col_units
+
+        # HAVING clause
+        idx, having_conds = parse_having(toks, idx, tables_with_alias, schema, default_tables)
+        sql['having'] = having_conds
+
+        # ORDER BY clause
+        idx, order_col_units = parse_order_by(toks, idx, tables_with_alias, schema, default_tables)
+        sql['orderBy'] = order_col_units
+
+        # LIMIT clause
+        idx, limit_val = parse_limit(toks, idx)
+        sql['limit'] = limit_val
+
+        idx = skip_semicolon(toks, idx)
+        if isBlock:
+            if idx >= len_ or toks[idx] != ')':
+                raise Exception("Missing closing parenthesis in SQL block")
+            idx += 1  # skip ')'
+        idx = skip_semicolon(toks, idx)
+
+        # INTERSECT/UNION/EXCEPT clause
+        for op in SQL_OPS:
+            sql[op] = None
+
+        if idx < len_ and toks[idx] in SQL_OPS:
+            sql_op = toks[idx]
+            idx += 1
+            idx, IUE_sql = parse_sql(toks, idx, tables_with_alias, schema)
+            sql[sql_op] = IUE_sql
+
+        return idx, sql
+
+    except Exception as e:
+        print(f"Error in parse_sql: {e}")
+        raise
+
 
 
 def load_data(fpath):
@@ -569,9 +683,11 @@ def load_data(fpath):
 
 def get_sql(schema, query):
     toks = tokenize(query)
+    print("toks: ", toks)
     tables_with_alias = get_tables_with_alias(schema.schema, toks)
+    print("tables_with_alias: ", tables_with_alias)
     _, sql = parse_sql(toks, 0, tables_with_alias, schema)
-
+    print("Parsed SQL: ", sql)
     return sql
 
 
@@ -585,14 +701,11 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "concert_singer"
+    db = "car_1"
     db = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db))
-    p_str = "SELECT s.Song_Name FROM singer s WHERE s.Age > (SELECT AVG(Age) FROM singer) ORDER BY s.Song_Name"
+    p_str = """ SELECT Model FROM model_list WHERE ModelId IN (SELECT MakeId FROM car_names WHERE Make IN (SELECT Make FROM cars_data WHERE Cylinders = 4 ORDER BY Horsepower DESC LIMIT 1))"""
     try:
         p_sql = get_sql(schema, p_str)
     except Exception as e:
-        # If p_sql is not valid, it is incorrect
-        print(f"Error parsing SQL: {e}")
-        all_correct = False
-        
+        print(f"Error: {e}")
