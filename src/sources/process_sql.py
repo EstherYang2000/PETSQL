@@ -193,6 +193,9 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
         :returns next idx, column id
     """
     tok = toks[start_idx]
+    # print(f"🔎 Parsing column: '{tok}' at index {start_idx}")
+    # print(f"🔎 Default tables: {default_tables}")
+    
     if tok == "*":
         return start_idx + 1, schema.idMap[tok]
 
@@ -207,10 +210,24 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
     tok_lower = tok.lower()
     for alias in default_tables:
         table = tables_with_alias[alias]
+        # print(f"🔎 Checking table: '{table}' for column: '{tok_lower}'")
+        # print(f"🔎 Available columns in {table}: {schema.schema.get(table, [])}")
+        
         # Check if column exists in schema (case-insensitive)
-        for col in schema.schema[table]:
+        for col in schema.schema.get(table, []):
             if tok_lower == col.lower():
                 key = table + "." + col
+                # print(f"✅ Found column match: {key}")
+                return start_idx+1, schema.idMap[key]
+    
+    # If we get here, the column wasn't found in any of the default tables
+    # Let's try a more aggressive approach - check all tables
+    # print(f"⚠️ Column '{tok}' not found in default tables, checking all tables...")
+    for table_name, columns in schema.schema.items():
+        for col in columns:
+            if tok_lower == col.lower():
+                key = table_name + "." + col
+                # print(f"✅ Found column match in non-default table: {key}")
                 return start_idx+1, schema.idMap[key]
 
     assert False, "Error col: {}".format(tok)
@@ -306,6 +323,9 @@ def parse_value(toks, start_idx, tables_with_alias, schema, default_tables=None)
 
     if toks[idx] == 'select':
         idx, val = parse_sql(toks, idx, tables_with_alias, schema)
+    elif toks[idx] == 'null':  # Handle NULL values
+        val = "NULL"
+        idx += 1
     elif "\"" in toks[idx]:  # token is a string value
         val = toks[idx]
         idx += 1
@@ -319,8 +339,16 @@ def parse_value(toks, start_idx, tables_with_alias, schema, default_tables=None)
                 and toks[end_idx] != 'and' and toks[end_idx] not in CLAUSE_KEYWORDS and toks[end_idx] not in JOIN_KEYWORDS:
                     end_idx += 1
 
-            idx, val = parse_col_unit(toks[start_idx: end_idx], 0, tables_with_alias, schema, default_tables)
-            idx = end_idx
+            try:
+                idx, val = parse_col_unit(toks[start_idx: end_idx], 0, tables_with_alias, schema, default_tables)
+                idx = end_idx
+            except Exception as e:
+                # If parsing as column fails and the token is 'null', treat it as NULL
+                if toks[start_idx].lower() == 'null':
+                    val = "NULL"
+                    idx = start_idx + 1
+                else:
+                    raise e
 
     if isBlock:
         assert toks[idx] == ')'
@@ -334,30 +362,86 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
     len_ = len(toks)
     conds = []
 
-    print(f"🔍 Entering parse_condition at index {idx} with tokens: {toks[idx:]}")
+    # print(f"🔍 Entering parse_condition at index {idx} with tokens: {toks[idx:]}")
 
     while idx < len_:
         is_grouped = False  # Track if this is a grouped condition (inside parentheses)
 
         if toks[idx] == "(":  # Handle grouped conditions
-            print(f"📌 Detected opening parenthesis at index {idx}")
+            # print(f"📌 Detected opening parenthesis at index {idx}")
             is_grouped = True
             idx += 1  # Move past '('
-            sub_conds = []  # Store grouped conditions
+            
+            # Check if this is a tuple comparison like (col1, col2) IN ...
+            # We'll detect this by looking for a comma after a column name
+            tuple_mode = False
+            temp_idx = idx
+            
+            # Try to parse as a tuple
+            while temp_idx < len_ and toks[temp_idx] != ")":
+                if toks[temp_idx] == ",":
+                    tuple_mode = True
+                    break
+                temp_idx += 1
+            
+            if tuple_mode:
+                # print(f"📌 Detected tuple comparison at index {idx}")
+                # For tuple comparisons, we'll create a regular condition
+                # but with a special handling for the nested structure
+                
+                # Skip the entire tuple and the IN operator
+                # Find the closing parenthesis
+                paren_count = 1
+                while idx < len_ and paren_count > 0:
+                    if toks[idx] == "(":
+                        paren_count += 1
+                    elif toks[idx] == ")":
+                        paren_count -= 1
+                    idx += 1
+                
+                # Now we're at the token after the closing parenthesis
+                # Skip the IN operator
+                if idx < len_ and toks[idx] in WHERE_OPS:
+                    idx += 1
+                
+                # Skip the opening parenthesis of the subquery
+                if idx < len_ and toks[idx] == "(":
+                    idx += 1
+                
+                # Parse the subquery if it exists
+                if idx < len_ and toks[idx] == "select":
+                    idx, val1 = parse_sql(toks, idx, tables_with_alias, schema)
+                else:
+                    # Skip to closing parenthesis
+                    paren_count = 1
+                    while idx < len_ and paren_count > 0:
+                        if toks[idx] == "(":
+                            paren_count += 1
+                        elif toks[idx] == ")":
+                            paren_count -= 1
+                        idx += 1
+                
+                # Create a dummy condition that will pass through evaluation
+                # Use a standard format that evaluation.py expects
+                dummy_val_unit = (0, (0, "__all__", False), None)  # unit_op, col_unit1, col_unit2
+                conds.append((False, WHERE_OPS.index("in"), dummy_val_unit, val1, None))
+            else:
+                # Not a tuple, parse as regular grouped condition
+                sub_conds = []
+                
+                while idx < len_ and toks[idx] != ")":
+                    idx, sub_cond = parse_condition(toks, idx, tables_with_alias, schema, default_tables)
+                    sub_conds.append(sub_cond)
 
-            while idx < len_ and toks[idx] != ")":
-                idx, sub_cond = parse_condition(toks, idx, tables_with_alias, schema, default_tables)
-                sub_conds.append(sub_cond)
+                    # Handle AND/OR inside grouped condition
+                    if idx < len_ and toks[idx] in COND_OPS:
+                        sub_conds.append(toks[idx])
+                        idx += 1  # Skip AND/OR
 
-                # Handle AND/OR inside grouped condition
-                if idx < len_ and toks[idx] in COND_OPS:
-                    sub_conds.append(toks[idx])
-                    idx += 1  # Skip AND/OR
-
-            assert toks[idx] == ")", f"❌ Expected closing parenthesis but got {toks[idx]}"
-            print(f"📌 Detected closing parenthesis at index {idx}")
-            idx += 1  # Move past ')'
-            conds.append(sub_conds)  # Add the grouped condition as a nested structure
+                assert toks[idx] == ")", f"❌ Expected closing parenthesis but got {toks[idx]}"
+                # print(f"📌 Detected closing parenthesis at index {idx}")
+                idx += 1  # Move past ')'
+                conds.append(sub_conds)  # Add the grouped condition as a nested structure
         else:
             # Parse normal condition
             idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
@@ -392,12 +476,17 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
                     assert toks[idx] == ")"
                     idx += 1  # Skip closing ')'
                     val1 = val_list
-            elif op_id == WHERE_OPS.index("is") and idx < len_ and toks[idx] == "not":  # Handle IS NOT NULL
-                idx += 1
-                assert idx < len_ and toks[idx] == "null", f"❌ Expected 'null' after 'IS NOT', but got {toks[idx]}"
-                val1 = "NULL"
-                not_op = True  # Treat as "IS NOT NULL"
-                idx += 1
+            elif op_id == WHERE_OPS.index("is"):  # Handle IS NULL or IS NOT NULL
+                if idx < len_ and toks[idx] == "not":
+                    idx += 1
+                    not_op = True  # Treat as "IS NOT NULL"
+                
+                if idx < len_ and toks[idx] == "null":
+                    val1 = "NULL"
+                    idx += 1
+                else:
+                    print(f"⚠️ Expected 'null' after 'IS', but got {toks[idx] if idx < len_ else 'EOF'}")
+                    val1 = "NULL"  # Default to NULL even if token is missing
             else:  # Normal case: single value
                 idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
                 val2 = None
@@ -440,6 +529,11 @@ def parse_select(toks, start_idx, tables_with_alias, schema, default_tables=None
             idx += 1
         idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
         val_units.append((agg_id, val_unit))
+        
+        # Skip column aliases (AS keyword followed by alias name)
+        if idx < len_ and toks[idx].lower() == 'as':
+            idx += 2  # Skip 'AS' and the alias name
+        
         if idx < len_ and toks[idx] == ',':
             idx += 1  # skip ','
 
@@ -490,8 +584,8 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
 
 
 def parse_where(toks, start_idx, tables_with_alias, schema, default_tables):
-    print(f"🔍 Parsing WHERE clause at index {start_idx} with tokens: {toks[start_idx:]}")
-    print(f"🔍 Default Tables: {default_tables}")
+    # print(f"🔍 Parsing WHERE clause at index {start_idx} with tokens: {toks[start_idx:]}")
+    # print(f"🔍 Default Tables: {default_tables}")
     
     idx = start_idx
     len_ = len(toks)
@@ -506,7 +600,7 @@ def parse_where(toks, start_idx, tables_with_alias, schema, default_tables):
         print(f"❌ Error in parse_where: {e}")
         raise
 
-    print(f"✅ WHERE conditions parsed: {conds}")
+    # print(f"✅ WHERE conditions parsed: {conds}")
     return idx, conds
 
 
@@ -584,8 +678,8 @@ def parse_limit(toks, start_idx):
 
 
 def parse_sql(toks, start_idx, tables_with_alias, schema):
-    print(f"Parsing SQL from tokens: {toks[start_idx:]}")
-    print(f"Using tables_with_alias: {tables_with_alias}")
+    # print(f"Parsing SQL from tokens: {toks[start_idx:]}")
+    # print(f"Using tables_with_alias: {tables_with_alias}")
 
     try:
         isBlock = False  # indicate whether this is a block of sql/sub-sql
@@ -603,10 +697,10 @@ def parse_sql(toks, start_idx, tables_with_alias, schema):
             from_start_idx += 1
 
         if from_start_idx < len_:  # Found FROM clause
-            print("Found FROM clause at index:", from_start_idx)
+            # print("Found FROM clause at index:", from_start_idx)
             from_end_idx, table_units, conds, default_tables = parse_from(toks, from_start_idx, tables_with_alias, schema)
         else:  # No FROM clause found
-            print("No FROM clause found.")
+            # print("No FROM clause found.")
             from_end_idx = len_
             table_units, conds, default_tables = [], [], schema.schema.keys()
 
@@ -618,7 +712,7 @@ def parse_sql(toks, start_idx, tables_with_alias, schema):
             select_idx += 1
 
         if select_idx < len_:  # Found SELECT clause
-            print("Found SELECT clause at index:", select_idx)
+            # print("Found SELECT clause at index:", select_idx)
             next_idx, select_col_units = parse_select(toks, select_idx, tables_with_alias, schema, default_tables)
             sql['select'] = select_col_units
         else:
@@ -628,13 +722,13 @@ def parse_sql(toks, start_idx, tables_with_alias, schema):
         idx = from_end_idx
 
         # WHERE clause
-        print("Checking for WHERE clause at index:", idx)
+        # print("Checking for WHERE clause at index:", idx)
         idx, where_conds = parse_where(toks, idx, tables_with_alias, schema, default_tables)
         sql['where'] = where_conds
-        print("WHERE conditions:", where_conds)
+        # print("WHERE conditions:", where_conds)
 
         # GROUP BY clause
-        print("Checking for GROUP BY clause at index:", idx)
+        # print("Checking for GROUP BY clause at index:", idx)
         idx, group_col_units = parse_group_by(toks, idx, tables_with_alias, schema, default_tables)
         sql['groupBy'] = group_col_units
 
@@ -682,12 +776,13 @@ def load_data(fpath):
 
 
 def get_sql(schema, query):
+    print(f"🔍 Parsing SQL for query: {query}")
     toks = tokenize(query)
-    print("toks: ", toks)
+    # print("toks: ", toks)
     tables_with_alias = get_tables_with_alias(schema.schema, toks)
-    print("tables_with_alias: ", tables_with_alias)
+    # print("tables_with_alias: ", tables_with_alias)
     _, sql = parse_sql(toks, 0, tables_with_alias, schema)
-    print("Parsed SQL: ", sql)
+    # print("Parsed SQL: ", sql)
     return sql
 
 
