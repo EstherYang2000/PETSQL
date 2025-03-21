@@ -1,19 +1,21 @@
-from ollama import chat, ChatResponse
+from ollama import Client
 
 
 class OllamaChat:
     """
-    A class to encapsulate interaction with the Ollama `codellama:34b-instruct` model.
+    A class to encapsulate interaction with the Ollama `llama3.3:latest` model using Client API.
     """
 
-    def __init__(self, model: str = 'codellama:34b-instruct'):
+    def __init__(self, model: str = "llama3.3:latest", base_url: str = "http://localhost:11434"):
         """
         Initialize the OllamaChat class with a specified model.
 
         Args:
-            model (str): The name of the model to interact with. Default is 'codellama:34b-instruct'.
+            model (str): The name of the model to interact with. Default is 'llama3.3:latest'.
+            base_url (str): The base URL of the Ollama API.
         """
         self.model = model
+        self.client = Client(host=base_url)
 
     def generate_response(self, prompt: str) -> str:
         """
@@ -26,41 +28,16 @@ class OllamaChat:
             str: The content of the model's response.
         """
         try:
-            # Send the chat request
-            prompt = f"""Please only output the final sql with this format '''sql <predicted sql here>.''' {prompt}"""
-            response: ChatResponse = chat(
+            full_prompt = f"""Please only output the final SQL with this format '''sql <predicted sql here>.''' {prompt}"""
+            response = self.client.chat(
+                messages=[{"role": "user", "content": full_prompt}],
                 model=self.model,
-                messages=[
-                    {'role': 'user', 'content': prompt},
-                ]
+                options={"temperature": 0.0},
             )
-            # Return the response content
-            return response.message.content
+            return response["message"]["content"]
         except Exception as e:
             print(f"An error occurred: {e}")
             return ""
-
-    def stream_response(self, prompt: str):
-        """
-        Streams the response to the prompt from the specified model.
-
-        Args:
-            prompt (str): The input prompt to send to the model.
-
-        Yields:
-            str: Chunks of the model's response content.
-        """
-        try:
-            stream = chat(
-                model=self.model,
-                messages=[{'role': 'user', 'content': prompt}],
-                stream=True,
-            )
-            for chunk in stream:
-                if 'message' in chunk and 'content' in chunk['message']:
-                    yield chunk['message']['content']
-        except Exception as e:
-            print(f"An error occurred while streaming: {e}")
 
     def generate_batch(self, prompts: list) -> list:
         """
@@ -75,20 +52,18 @@ class OllamaChat:
         responses = []
         for prompt in prompts:
             try:
-                prompt = f"""Please only output the final sql with this format '''sql <predicted sql here>.''' {prompt}"""
-                response: ChatResponse = chat(
+                full_prompt = f"""Please only output the final SQL with this format '''sql <predicted sql here>.''' {prompt}"""
+                response = self.client.chat(
+                    messages=[{"role": "user", "content": full_prompt}],
                     model=self.model,
-                    messages=[
-                        {'role': 'user', 'content': prompt},
-                    ]
+                    options={"temperature": 0.0,"top_p": 0.9,"top_k": 50}
                 )
-                responses.append(response.message.content)
+                responses.append(response["message"]["content"])
             except Exception as e:
                 print(f"An error occurred for prompt '{prompt}': {e}")
                 responses.append("")
         return responses
-
-
+    
 # Example usage
 if __name__ == "__main__":
     # Define a single prompt
@@ -158,21 +133,20 @@ Answer the final question below by providing **only** the final SQLite SQL query
     # Define a batch of prompts
     batch_prompts = [
         prompt,
-        prompt,
     ]
 
     # Initialize the class
-    ollama_chat = OllamaChat(model="codellama:34b-instruct")
+    ollama_chat = OllamaChat(model="llama3.3:latest")
 
-    # Generate a single response
-    print("Single Response:")
-    response = ollama_chat.generate_response(prompt)
-    print(response)
+    # # Generate a single response
+    # print("Single Response:")
+    # response = ollama_chat.generate_response(prompt)
+    # print(response)
 
-    # Stream a single response
-    print("\nStreaming Response:")
-    for chunk in ollama_chat.stream_response(prompt):
-        print(chunk, end='', flush=True)
+    # # Stream a single response
+    # print("\nStreaming Response:")
+    # for chunk in ollama_chat.stream_response(prompt):
+    #     print(chunk, end='', flush=True)
 
     # Generate responses for a batch of prompts
     print("\n\nBatch Responses:")

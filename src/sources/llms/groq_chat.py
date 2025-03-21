@@ -38,7 +38,7 @@ class GroqChat:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[{"role": "user", "content": prompt}],
-                    temperature=0.5,
+                    temperature=0.0,
                     max_completion_tokens=4096,
                     top_p=1,
                 )
@@ -69,7 +69,7 @@ class GroqChat:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.5,
+                temperature=0.0,
                 max_completion_tokens=4096,
                 top_p=1,
                 stream=True,

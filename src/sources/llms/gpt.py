@@ -1,7 +1,7 @@
 # import openai
 import os
 from openai import OpenAI
-
+import time 
 # Configure OpenAI API
 # openai.api_key = os.getenv("OPEN_API_KEY")  # Replace with your actual OpenAI API key
 # openai.organization = os.getenv("OPEN_GROUP_ID")  # Set the OpenAI organization ID if needed
@@ -61,7 +61,7 @@ class GPT:
             result = response.choices[0].message.content
             print(f"Model: {use_model}")
             print(f"Result: {result}")
-            return result
+            return [result]
             
         except Exception as e:
             print(f"Error calling OpenAI API: {str(e)}")
@@ -91,6 +91,8 @@ class GPT:
         responses = []
         for prompt in prompts:
             try:
+                prompt = f"""Please only output the final SQL with this format '''sql <predicted sql here>.''' {prompt}"""
+
                 # 每條 prompt 都可以帶入同樣的 model。若要單獨針對不同 prompt 使用不同 model，請自行修改。
                 response = self.__call__(
                     prompt,
@@ -100,8 +102,10 @@ class GPT:
                     **kwargs
                 )
                 responses.append(response)
+                time.sleep(2)
             except Exception as e:
                 responses.append(f"Error: {e}")
+            
         return responses
 
 
