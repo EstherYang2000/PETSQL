@@ -805,48 +805,48 @@ def evaluate_cc(gold, predict, db_dir, etype, kmaps):
 
 
 def eval_exec_match(db, p_str, g_str, pred, gold):
-    """
-    return 1 if the values between prediction and gold are matching
-    in the corresponding index. Currently not support multiple col_unit(pairs).
-    """
     conn = sqlite3.connect(db)
-
     cursor = conn.cursor()
+    
     try:
         cursor.execute(p_str)
         p_res = cursor.fetchall()
-
     except Exception as e:
-        print(f"SQL Execution Error: {e}")
+        print(f"SQL Execution Error (predicted): {e}")
         return False
-    except sqlite3.OperationalError as e:
-        print(f"Decoding error: {e}")
-        # Attempt to decode with a different encoding
-        p_res = [
-            tuple(col.decode("latin-1") if isinstance(col, bytes) else col for col in row)
-            for row in cursor.fetchall()
-        ]
-    cursor.execute(g_str)
-    # q_res = cursor.fetchall()
+    
     try:
+        cursor.execute(g_str)
         q_res = cursor.fetchall()
-    except sqlite3.OperationalError as e:
-        print(f"Decoding error: {e}")
-        # Attempt to decode with a different encoding
-        q_res = [
-            tuple(col.decode("latin-1") if isinstance(col, bytes) else col for col in row)
-            for row in cursor.fetchall()
-        ]
+    except Exception as e:
+        print(f"SQL Execution Error (gold): {e}")
+        return False
 
     def res_map(res, val_units):
         rmap = {}
+        
+        def make_hashable(obj):
+            if isinstance(obj, (list, tuple)):
+                return tuple(make_hashable(x) for x in obj)
+            elif isinstance(obj, dict):
+                return tuple(sorted((k, make_hashable(v)) for k, v in obj.items()))
+            return obj
+        
         for idx, val_unit in enumerate(val_units):
-            key = tuple(val_unit[1]) if not val_unit[2] else (val_unit[0], tuple(val_unit[1]), tuple(val_unit[2]))
+            unit_op, col_unit1, col_unit2 = val_unit
+            agg_id, col_id, is_distinct = col_unit1
+            
+            if isinstance(col_id, dict):
+                key = (agg_id, make_hashable(col_id), is_distinct)
+            else:
+                key = (agg_id, col_id, is_distinct)
+            
             rmap[key] = [r[idx] for r in res]
         return rmap
 
     p_val_units = [unit[1] for unit in pred['select'][1]]
     q_val_units = [unit[1] for unit in gold['select'][1]]
+    
     return res_map(p_res, p_val_units) == res_map(q_res, q_val_units)
     # try:
     #     with sqlite3.connect(db) as conn:
@@ -899,13 +899,23 @@ def rebuild_cond_unit_val(cond_unit):
         val2 = rebuild_sql_val(val2)
     return not_op, op_id, val_unit, val1, val2
 
-
+def flatten_conditions(conds):
+    """Flatten nested conditions in WHERE clauses."""
+    flat_conds = []
+    for cond in conds:
+        if isinstance(cond, list):  # 🛠 If it's a list, recursively flatten
+            flat_conds.extend(flatten_conditions(cond))
+        else:
+            flat_conds.append(cond)
+    return flat_conds
 def rebuild_condition_val(condition):
     if condition is None or not DISABLE_VALUE:
         return condition
 
     res = []
-    for idx, it in enumerate(condition):
+    flat_conds = flatten_conditions(condition)  # 🛠 Ensure we have a flat structure
+
+    for idx, it in enumerate(flat_conds):
         if idx % 2 == 0:
             res.append(rebuild_cond_unit_val(it))
         else:
@@ -943,7 +953,7 @@ def rebuild_col_unit_col(valid_col_units, col_unit, kmap):
         return col_unit
 
     agg_id, col_id, distinct = col_unit
-    if col_id in kmap and col_id in valid_col_units:
+    if isinstance(col_id, str) and col_id in kmap and col_id in valid_col_units:
         col_id = kmap[col_id]
     if DISABLE_DISTINCT:
         distinct = None

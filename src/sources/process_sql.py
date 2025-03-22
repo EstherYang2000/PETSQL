@@ -77,6 +77,7 @@ def get_schema(db):
     for table in tables:
         cursor.execute("PRAGMA table_info({})".format(table))
         schema[table] = [str(col[1].lower()) for col in cursor.fetchall()]
+    print(f"Schema: {schema}")  # Debug print
     return schema
 
 def get_schema_from_json(fpath):
@@ -161,25 +162,60 @@ def get_tables_with_alias(schema, toks):
 
 def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
     tok = toks[start_idx]
-    # print(f"Parsing column: '{tok}' at {start_idx}")
+    print(f"Parsing column: '{tok}' at {start_idx}, default_tables: {default_tables}")
+
+    # Check if token is an operator, not a column
+    if tok.lower() in WHERE_OPS or tok.lower() in CLAUSE_KEYWORDS or tok.lower() in JOIN_KEYWORDS or tok.lower() in COND_OPS:
+        raise ValueError(f"Error col: {tok} - token is an operator, not a column")
 
     if tok == "*":
         return start_idx + 1, schema.idMap[tok]
     if '.' in tok:
         alias, col = tok.split('.')
         key = tables_with_alias[alias] + "." + col
-        return start_idx + 1, schema.idMap[key]
+        key_lower = key.lower()
+        print(f"Checking explicit column: {key_lower} in idMap: {key_lower in schema.idMap}")
+        if key_lower in schema.idMap:
+            return start_idx + 1, schema.idMap[key_lower]
+        raise ValueError(f"Error col: {tok} - not found in schema")
 
     assert default_tables is not None and len(default_tables) > 0, "Default tables required"
     tok_lower = tok.lower()
+    possible_keys = []
+    
+    # First try default_tables
     for alias in default_tables:
         table = tables_with_alias[alias]
-        for col in schema.schema.get(table, []):
+        cols = schema.schema.get(table, [])
+        print(f"Checking table: {table}, columns: {cols}")
+        for col in cols:
             if tok_lower == col.lower():
                 key = table + "." + col
-                # print(f"Resolved column: {key}")
-                return start_idx + 1, schema.idMap[key]
-    assert False, f"Error col: {tok}"
+                possible_keys.append(key)
+
+    # If no match and default_tables seems incomplete, fall back to all tables in tables_with_alias
+    if not possible_keys and len(default_tables) < len(tables_with_alias):
+        print(f"Default tables incomplete, checking all tables: {list(tables_with_alias.keys())}")
+        for alias, table in tables_with_alias.items():
+            if alias in default_tables:
+                continue  # Already checked
+            cols = schema.schema.get(table, [])
+            print(f"Checking table: {table}, columns: {cols}")
+            for col in cols:
+                if tok_lower == col.lower():
+                    key = table + "." + col
+                    possible_keys.append(key)
+
+    print(f"Possible keys for '{tok}': {possible_keys}")
+    if len(possible_keys) == 1:
+        key_lower = possible_keys[0].lower()
+        print(f"Looking up: {key_lower} in idMap: {key_lower in schema.idMap}")
+        if key_lower in schema.idMap:
+            return start_idx + 1, schema.idMap[key_lower]
+        raise ValueError(f"Error col: {tok} - key {key_lower} not in idMap")
+    elif len(possible_keys) > 1:
+        raise ValueError(f"Ambiguous column: {tok} - matches {possible_keys}")
+    raise ValueError(f"Error col: {tok} - not found in schema")
 
 def parse_col_unit(toks, start_idx, tables_with_alias, schema, default_tables=None):
     idx = start_idx
@@ -222,6 +258,22 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         isBlock = True
         idx += 1
 
+    # Check for function like COALESCE
+    if toks[idx].lower() in ['coalesce']:
+        func_name = toks[idx]
+        idx += 1
+        assert toks[idx] == '('
+        idx += 1
+        args = []
+        while idx < len_ and toks[idx] != ')':
+            idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+            args.append(val)
+            if idx < len_ and toks[idx] == ',':
+                idx += 1
+        assert toks[idx] == ')'
+        idx += 1
+        return idx, (UNIT_OPS.index('none'), (AGG_OPS.index('none'), {'func': func_name, 'args': args}, False), None)
+
     idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
     if isinstance(val, tuple) and len(val) == 3:
         col_unit1 = val
@@ -260,7 +312,29 @@ def parse_value(toks, start_idx, tables_with_alias, schema, default_tables=None)
         isBlock = True
         idx += 1
 
-    if toks[idx] == 'select':
+    # Handle SQL functions like date('now')
+    time_functions = ['date', 'time', 'datetime', 'strftime', 'current_timestamp', 'current_date', 'current_time']
+    if toks[idx].lower() in time_functions and idx + 1 < len_ and toks[idx + 1] == '(':
+        func_name = toks[idx].lower()
+        idx += 1  # Move to '('
+        idx += 1  # Skip '('
+        if func_name in ['current_timestamp', 'current_date', 'current_time']:
+            # No arguments for CURRENT_* functions
+            assert idx < len_ and toks[idx] == ')', f"Expected ')' after {func_name}"
+            idx += 1
+            val = {'func': func_name, 'args': []}
+        else:
+            # Expect arguments (e.g., date('now'))
+            args = []
+            while idx < len_ and toks[idx] != ')':
+                idx, arg = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                args.append(arg)
+                if idx < len_ and toks[idx] == ',':
+                    idx += 1
+            assert idx < len_ and toks[idx] == ')', f"Expected ')' after {func_name} arguments"
+            idx += 1
+            val = {'func': func_name, 'args': args}
+    elif toks[idx] == 'select':
         idx, val = parse_sql(toks, idx, tables_with_alias, schema)
     elif toks[idx] == 'null':
         val = "NULL"
@@ -400,8 +474,13 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
             idx, sql = parse_sql(toks, idx, tables_with_alias, schema)
             table_units.append((TABLE_TYPE['sql'], sql))
         else:
+            # Check for join type (e.g., 'left', 'inner', 'right') before 'join'
+            join_type = None
+            if idx < len_ - 1 and toks[idx + 1] == 'join':
+                join_type = toks[idx]  # e.g., 'left'
+                idx += 1  # Skip join type
             if idx < len_ and toks[idx] == 'join':
-                idx += 1
+                idx += 1  # Skip 'join'
             idx, table_unit, table_name = parse_table_unit(toks, idx, tables_with_alias, schema)
             table_units.append((TABLE_TYPE['table_unit'], table_unit))
             default_tables.append(table_name)
@@ -493,7 +572,19 @@ def parse_sql(toks, start_idx, tables_with_alias, schema):
         isBlock = False
         len_ = len(toks)
         idx = start_idx
-        sql = {}
+        # Initialize sql with all required keys to avoid missing key errors
+        sql = {
+            'select': (False, []),
+            'from': {'table_units': [], 'conds': []},
+            'where': [],
+            'groupBy': [],
+            'having': [],
+            'orderBy': [],
+            'limit': None,
+            'intersect': None,
+            'union': None,
+            'except': None
+        }
         if toks[idx] == '(':
             isBlock = True
             idx += 1
@@ -503,10 +594,10 @@ def parse_sql(toks, start_idx, tables_with_alias, schema):
             from_start_idx += 1
         if from_start_idx < len_:
             from_end_idx, table_units, conds, default_tables = parse_from(toks, from_start_idx, tables_with_alias, schema)
+            sql['from'] = {'table_units': table_units, 'conds': conds}
         else:
             from_end_idx = len_
-            table_units, conds, default_tables = [], [], schema.schema.keys()
-        sql['from'] = {'table_units': table_units, 'conds': conds}
+            default_tables = list(schema.schema.keys())
 
         select_idx = idx
         while select_idx < len_ and toks[select_idx].lower() != 'select':
@@ -515,7 +606,7 @@ def parse_sql(toks, start_idx, tables_with_alias, schema):
             next_idx, select_col_units = parse_select(toks, select_idx, tables_with_alias, schema, default_tables)
             sql['select'] = select_col_units
         else:
-            sql['select'] = (False, [])
+            next_idx = idx
 
         idx = from_end_idx
         idx, where_conds = parse_where(toks, idx, tables_with_alias, schema, default_tables)
@@ -536,15 +627,54 @@ def parse_sql(toks, start_idx, tables_with_alias, schema):
             idx += 1
         idx = skip_semicolon(toks, idx)
 
-        for op in SQL_OPS:
-            sql[op] = None
         if idx < len_ and toks[idx] in SQL_OPS:
             sql_op = toks[idx]
             idx += 1
-            idx, IUE_sql = parse_sql(toks, idx, tables_with_alias, schema)
-            sql[sql_op] = IUE_sql
+            idx, iue_sql = parse_sql(toks, idx, tables_with_alias, schema)
+            sql[sql_op] = iue_sql
 
-        return idx, sql
+        # Ensure nested SQL dictionaries are fully initialized
+        def ensure_full_sql_structure(sql_dict):
+            required_keys = {
+                'select': (False, []),
+                'from': {'table_units': [], 'conds': []},
+                'where': [],
+                'groupBy': [],
+                'having': [],
+                'orderBy': [],
+                'limit': None,
+                'intersect': None,
+                'union': None,
+                'except': None
+            }
+            for key, default in required_keys.items():
+                if key not in sql_dict:
+                    sql_dict[key] = default
+            # Recursively check nested SQL
+            for key in ['intersect', 'union', 'except']:
+                if sql_dict[key] is not None:
+                    ensure_full_sql_structure(sql_dict[key])
+            for cond in sql_dict['where']:
+                if isinstance(cond, tuple) and len(cond) == 5:  # cond_unit
+                    if isinstance(cond[3], dict):  # val1
+                        ensure_full_sql_structure(cond[3])
+                    if isinstance(cond[4], dict):  # val2
+                        ensure_full_sql_structure(cond[4])
+            for cond in sql_dict['from']['conds']:
+                if isinstance(cond, tuple) and len(cond) == 5:
+                    if isinstance(cond[3], dict):
+                        ensure_full_sql_structure(cond[3])
+                    if isinstance(cond[4], dict):
+                        ensure_full_sql_structure(cond[4])
+            for cond in sql_dict['having']:
+                if isinstance(cond, tuple) and len(cond) == 5:
+                    if isinstance(cond[3], dict):
+                        ensure_full_sql_structure(cond[3])
+                    if isinstance(cond[4], dict):
+                        ensure_full_sql_structure(cond[4])
+            return sql_dict
+
+        return idx, ensure_full_sql_structure(sql)
     except Exception as e:
         print(f"❌ Error in parse_sql: {e}")
         raise
@@ -561,6 +691,7 @@ def get_sql(schema, query):
     print(f"Tables with alias: {tables_with_alias}")
     try:
         _, sql = parse_sql(toks, 0, tables_with_alias, schema)
+        print(sql)
         return sql
     except Exception as e:
         print(f"❌ Error in get_sql: {e}")
@@ -575,10 +706,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "car_1"
+    db = "world_1"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT T1.Model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id ORDER BY T2.mpg DESC LIMIT 1;"""
+    p_str = """SELECT city.Name  FROM city  JOIN country ON city.CountryCode = country.Code  JOIN countrylanguage ON country.Code = countrylanguage.CountryCode  WHERE country.Continent = 'Europe' AND NOT (countrylanguage.Language = 'English' AND countrylanguage.IsOfficial = 'T');"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
