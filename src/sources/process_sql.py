@@ -258,24 +258,24 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         isBlock = True
         idx += 1
 
-    # Check for function like COALESCE
-    if toks[idx].lower() in ['coalesce']:
-        func_name = toks[idx]
+    # Handle aggregation like SUM(...)
+    if toks[idx] in AGG_OPS and toks[idx] != 'none':
+        agg_id = AGG_OPS.index(toks[idx])
         idx += 1
-        assert toks[idx] == '('
+        assert toks[idx] == '(', f"Expected '(' after {toks[idx-1]}"
         idx += 1
-        args = []
-        while idx < len_ and toks[idx] != ')':
-            idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-            args.append(val)
-            if idx < len_ and toks[idx] == ',':
-                idx += 1
-        assert toks[idx] == ')'
+        # Parse the expression inside SUM
+        idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+        assert toks[idx] == ')', f"Expected ')' after aggregation"
         idx += 1
-        return idx, (UNIT_OPS.index('none'), (AGG_OPS.index('none'), {'func': func_name, 'args': args}, False), None)
+        if isBlock:
+            assert toks[idx] == ')', f"Expected closing ')' for block"
+            idx += 1
+        return idx, (UNIT_OPS.index('none'), (agg_id, val_unit, False), None)
 
+    # Parse the first value or column
     idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-    if isinstance(val, tuple) and len(val) == 3:
+    if isinstance(val, tuple) and len(val) == 3:  # Already a col_unit
         col_unit1 = val
     else:
         col_unit1 = (AGG_OPS.index("none"), val, False)
@@ -285,10 +285,11 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
     if idx < len_ and toks[idx] in UNIT_OPS:
         unit_op = UNIT_OPS.index(toks[idx])
         idx += 1
-        idx, col_unit2 = parse_col_unit(toks, idx, tables_with_alias, schema, default_tables)
+        idx, val2 = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+        col_unit2 = val2 if isinstance(val2, tuple) and len(val2) == 3 else (AGG_OPS.index("none"), val2, False)
 
     if isBlock:
-        assert toks[idx] == ')'
+        assert toks[idx] == ')', f"Expected ')' but got {toks[idx]}"
         idx += 1
     return idx, (unit_op, col_unit1, col_unit2)
 
@@ -534,11 +535,11 @@ def parse_order_by(toks, start_idx, tables_with_alias, schema, default_tables):
     val_units = []
     order_type = 'asc'
     if idx >= len_ or toks[idx] != 'order':
-        return idx, val_units
+        return idx, ('asc', [])
     idx += 1
-    assert toks[idx] == 'by'
+    assert toks[idx] == 'by', f"Expected 'by' after 'order'"
     idx += 1
-    while idx < len_ and not (toks[idx] in CLAUSE_KEYWORDS or toks[idx] in (")", ";")):
+    while idx < len_ and toks[idx] not in CLAUSE_KEYWORDS and toks[idx] not in (")", ";"):
         idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
         val_units.append(val_unit)
         if idx < len_ and toks[idx] in ORDER_OPS:
@@ -709,7 +710,7 @@ if __name__ == "__main__":
     db = "world_1"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT city.Name  FROM city  JOIN country ON city.CountryCode = country.Code  JOIN countrylanguage ON country.Code = countrylanguage.CountryCode  WHERE country.Continent = 'Europe' AND NOT (countrylanguage.Language = 'English' AND countrylanguage.IsOfficial = 'T');"""
+    p_str = """SELECT Language  FROM countrylanguage  JOIN country ON countrylanguage.CountryCode = country.Code  WHERE country.Continent = 'Asia'  GROUP BY Language  ORDER BY SUM(countrylanguage.Percentage * country.Population / 100.0) DESC  LIMIT 1;"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
