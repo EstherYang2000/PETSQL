@@ -524,6 +524,17 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
         if toks[idx] == 'select':
             idx, sql = parse_sql(toks, idx, tables_with_alias, schema)
             table_units.append((TABLE_TYPE['sql'], sql))
+            # Handle alias after subquery
+            if idx < len_ and toks[idx] == ')':
+                idx += 1  # Skip closing parenthesis
+                if idx < len_ and toks[idx] == 'as':
+                    idx += 1  # Skip 'as'
+                    if idx < len_:
+                        alias = toks[idx]
+                        # Update tables_with_alias with subquery alias
+                        tables_with_alias[alias] = f"subquery_{len(table_units)-1}"
+                        default_tables.append(alias)
+                        idx += 1  # Skip alias name
         else:
             # Check for join type (e.g., 'left', 'inner', 'right') before 'join'
             join_type = None
@@ -541,9 +552,8 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
             if len(conds) > 0:
                 conds.append('and')
             conds.extend(this_conds)
-        if isBlock:
-            assert toks[idx] == ')'
-            idx += 1
+        if isBlock and idx < len_ and toks[idx] == ')':
+            idx += 1  # Already handled above, just ensure we move past ')'
         if idx < len_ and (toks[idx] in CLAUSE_KEYWORDS or toks[idx] in (")", ";")):
             break
     return idx, table_units, conds, default_tables
