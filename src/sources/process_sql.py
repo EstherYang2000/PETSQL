@@ -377,10 +377,34 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
             idx += 1
             conds.append(sub_conds)
         else:
+            # Check for NOT EXISTS
+            not_op = False
+            if idx < len_ and toks[idx] == "not":
+                not_op = True
+                idx += 1
+                if idx < len_ and toks[idx] == "exists":
+                    idx += 1
+                    assert toks[idx] == "(", f"Expected '(' after EXISTS but got {toks[idx]}"
+                    idx += 1
+                    assert toks[idx] == "select", f"Expected subquery after EXISTS but got {toks[idx]}"
+                    idx, subquery = parse_sql(toks, idx, tables_with_alias, schema)
+                    assert toks[idx] == ")", f"Expected ')' after subquery but got {toks[idx]}"
+                    idx += 1
+                    # Construct condition for NOT EXISTS: no val_unit, subquery as val1
+                    op_id = WHERE_OPS.index("exists")
+                    conds.append((not_op, op_id, None, subquery, None))
+                    # Check for logical operators or end of condition
+                    if idx < len_ and toks[idx] in COND_OPS:
+                        conds.append(toks[idx])
+                        idx += 1
+                    if idx < len_ and (toks[idx] in CLAUSE_KEYWORDS or toks[idx] in (")", ";") or toks[idx] in JOIN_KEYWORDS):
+                        break
+                    continue
+
+            # Regular condition parsing
             idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
             # print(f"Val unit: {val_unit}")
 
-            not_op = False
             if idx < len_ and toks[idx] == "not":
                 not_op = True
                 idx += 1
@@ -418,6 +442,12 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
                     idx += 1
                 assert idx < len_ and toks[idx] == "null", f"Expected 'null' but got {toks[idx]}"
                 val1 = "NULL"
+                idx += 1
+            elif op_id == WHERE_OPS.index("exists"):
+                assert toks[idx] == "(", f"Expected '(' after EXISTS but got {toks[idx]}"
+                idx += 1
+                idx, val1 = parse_sql(toks, idx, tables_with_alias, schema)
+                assert toks[idx] == ")", f"Expected ')' after subquery but got {toks[idx]}"
                 idx += 1
             else:
                 idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
@@ -707,10 +737,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "world_1"
+    db = "museum_visit"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT Language  FROM countrylanguage  JOIN country ON countrylanguage.CountryCode = country.Code  WHERE country.Continent = 'Asia'  GROUP BY Language  ORDER BY SUM(countrylanguage.Percentage * country.Population / 100.0) DESC  LIMIT 1;"""
+    p_str = """SELECT count(*) FROM visitor AS v WHERE NOT EXISTS (SELECT 1 FROM visit AS vi JOIN museum AS m ON vi.Museum_ID = m.Museum_ID WHERE vi.visitor_ID = v.ID AND m.Open_Year > 2010)"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
