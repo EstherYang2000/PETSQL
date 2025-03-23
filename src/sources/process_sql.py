@@ -264,7 +264,6 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         idx += 1
         assert toks[idx] == '(', f"Expected '(' after {toks[idx-1]}"
         idx += 1
-        # Parse the expression inside SUM
         idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
         assert toks[idx] == ')', f"Expected ')' after aggregation"
         idx += 1
@@ -274,12 +273,33 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         return idx, (UNIT_OPS.index('none'), (agg_id, val_unit, False), None)
 
     # Parse the first value or column
-    idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-    if isinstance(val, tuple) and len(val) == 3:  # Already a col_unit
-        col_unit1 = val
+    idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+    if isinstance(val1, tuple) and len(val1) == 3:  # Already a col_unit
+        col_unit1 = val1
     else:
-        col_unit1 = (AGG_OPS.index("none"), val, False)
+        col_unit1 = (AGG_OPS.index("none"), val1, False)
 
+    # Check for concatenation operator '||'
+    if idx < len_ and toks[idx] == '||':
+        unit_op = UNIT_OPS.index('+')  # Treat '||' as addition for string concatenation
+        idx += 1
+        idx, val2 = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+        col_unit2 = val2 if isinstance(val2, tuple) and len(val2) == 3 else (AGG_OPS.index("none"), val2, False)
+        result = (unit_op, col_unit1, col_unit2)
+        
+        # Handle multiple concatenations (e.g., first_name || ' ' || last_name)
+        while idx < len_ and toks[idx] == '||':
+            idx += 1
+            idx, val_next = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+            col_unit_next = val_next if isinstance(val_next, tuple) and len(val_next) == 3 else (AGG_OPS.index("none"), val_next, False)
+            result = (UNIT_OPS.index('+'), result, col_unit_next)
+        
+        if isBlock:
+            assert toks[idx] == ')', f"Expected ')' but got {toks[idx]}"
+            idx += 1
+        return idx, result
+
+    # Default case: no operation or other UNIT_OPS
     unit_op = UNIT_OPS.index('none')
     col_unit2 = None
     if idx < len_ and toks[idx] in UNIT_OPS:
@@ -737,10 +757,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "museum_visit"
+    db = "world_1"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT count(*) FROM visitor AS v WHERE NOT EXISTS (SELECT 1 FROM visit AS vi JOIN museum AS m ON vi.Museum_ID = m.Museum_ID WHERE vi.visitor_ID = v.ID AND m.Open_Year > 2010)"""
+    p_str = """SELECT COUNT(*) FROM (SELECT CountryCode FROM countrylanguage WHERE Language IN ('English', 'Dutch') GROUP BY CountryCode HAVING COUNT(DISTINCT Language) = 2) AS T;"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
