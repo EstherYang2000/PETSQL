@@ -31,7 +31,7 @@ from nltk import word_tokenize
 CLAUSE_KEYWORDS = ('select', 'from', 'where', 'group', 'order', 'limit', 'intersect', 'union', 'except')
 JOIN_KEYWORDS = ('join', 'on', 'as')
 
-WHERE_OPS = ('not', 'between', '=', '>', '<', '>=', '<=', '!=', 'in', 'like', 'is', 'exists')
+WHERE_OPS = ('not', 'between', '=', '>', '<', '>=', '<=', '!=', 'in', 'like', 'is', 'exists', '<>')
 UNIT_OPS = ('none', '-', '+', "*", '/')
 AGG_OPS = ('none', 'max', 'min', 'count', 'sum', 'avg')
 TABLE_TYPE = {
@@ -107,31 +107,43 @@ def tokenize(string):
 
     toks = []
     current_tok = ""
-    for char in string:
+    i = 0
+    while i < len(string):
+        char = string[i]
         if char.isspace():
             if current_tok:
                 toks.append(current_tok.lower())
                 current_tok = ""
+            i += 1
         elif char in "=><!()*,;":
             if current_tok:
                 toks.append(current_tok.lower())
                 current_tok = ""
-            toks.append(char)
+            # Check for two-character operators
+            if char == '<' and i + 1 < len(string) and string[i + 1] == '>':
+                toks.append('<>')
+                i += 2
+            elif char == '>' and i + 1 < len(string) and string[i + 1] == '=':
+                toks.append('>=')
+                i += 2
+            elif char == '<' and i + 1 < len(string) and string[i + 1] == '=':
+                toks.append('<=')
+                i += 2
+            elif char == '!' and i + 1 < len(string) and string[i + 1] == '=':
+                toks.append('!=')
+                i += 2
+            else:
+                toks.append(char)
+                i += 1
         else:
             current_tok += char
+            i += 1
     if current_tok:
         toks.append(current_tok.lower())
 
     for i in range(len(toks)):
         if toks[i] in vals:
             toks[i] = vals[toks[i]]
-
-    eq_idxs = [idx for idx, tok in enumerate(toks) if tok == "="]
-    eq_idxs.reverse()
-    prefix = ('!', '>', '<')
-    for eq_idx in eq_idxs:
-        if eq_idx > 0 and toks[eq_idx-1] in prefix:
-            toks = toks[:eq_idx-1] + [toks[eq_idx-1] + "="] + toks[eq_idx+1:]
 
     print(f"Tokenized: {toks}")
     return toks
@@ -790,10 +802,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "pets_1"
+    db = "car_1"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT Fname FROM Student WHERE StuID IN (SELECT StuID FROM Has_Pet JOIN Pets USING(PetID) WHERE PetType = 'cat' INTERSECT SELECT StuID FROM Has_Pet JOIN Pets USING(PetID) WHERE PetType = 'dog');"""
+    p_str = """SELECT DISTINCT model_list.Model FROM cars_data JOIN car_names ON cars_data.Id = car_names.MakeId JOIN model_list ON car_names.Model = model_list.Model JOIN car_makers ON model_list.Maker = car_makers.Id WHERE cars_data.Weight < 3500   AND car_makers.FullName <> 'Ford Motor Company';"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
