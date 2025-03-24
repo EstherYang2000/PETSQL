@@ -146,7 +146,7 @@ def scan_alias(toks):
             continue
         if i > 0 and toks[i-1].lower() in ['from', 'join']:
             if (i + 1 < len(toks) and 
-                toks[i+1].lower() not in ['where', 'group', 'order', 'having', 'limit', 'union', 'intersect', 'except', 'and', 'or', 'join', 'on', 'as']):
+                toks[i+1].lower() not in ['where', 'group', 'order', 'having', 'limit', 'union', 'intersect', 'except', 'and', 'or', 'join', 'on', 'as', 'using']):
                 alias[toks[i+1]] = toks[i]
                 i += 2
                 continue
@@ -512,46 +512,73 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
     table_units = []
     conds = []
 
-    while idx < len_:
-        isBlock = False
-        if toks[idx] == '(':
-            isBlock = True
-            idx += 1
+    # Check if FROM is followed by a subquery
+    if idx < len_ and toks[idx] == '(':
+        idx += 1  # Skip '('
         if toks[idx] == 'select':
             idx, sql = parse_sql(toks, idx, tables_with_alias, schema)
             table_units.append((TABLE_TYPE['sql'], sql))
-            # Handle alias after subquery
-            if idx < len_ and toks[idx] == ')':
-                idx += 1  # Skip closing parenthesis
-                if idx < len_ and toks[idx] == 'as':
-                    idx += 1  # Skip 'as'
-                    if idx < len_:
-                        alias = toks[idx]
-                        # Update tables_with_alias with subquery alias
-                        tables_with_alias[alias] = f"subquery_{len(table_units)-1}"
-                        default_tables.append(alias)
-                        idx += 1  # Skip alias name
+            assert idx < len_ and toks[idx] == ')', f"Expected ')' after subquery, got {toks[idx]}"
+            idx += 1
+            if idx < len_ and toks[idx] == 'as':
+                idx += 1
+                alias = toks[idx]
+                tables_with_alias[alias] = f"subquery_{len(table_units)-1}"
+                default_tables.append(alias)
+                idx += 1
+            else:
+                alias = f"subquery_{len(table_units)-1}"
+                tables_with_alias[alias] = alias
+                default_tables.append(alias)
         else:
-            # Check for join type (e.g., 'left', 'inner', 'right') before 'join'
-            join_type = None
-            if idx < len_ - 1 and toks[idx + 1] == 'join':
-                join_type = toks[idx]  # e.g., 'left'
-                idx += 1  # Skip join type
-            if idx < len_ and toks[idx] == 'join':
-                idx += 1  # Skip 'join'
+            raise ValueError(f"Expected 'SELECT' after '(' in FROM clause, got {toks[idx]}")
+    else:
+        # Parse the first table
+        idx, table_unit, table_name = parse_table_unit(toks, idx, tables_with_alias, schema)
+        table_units.append((TABLE_TYPE['table_unit'], table_unit))
+        default_tables.append(table_name)
+
+        # Handle subsequent JOINs
+        while idx < len_ and toks[idx] == 'join':
+            idx += 1  # Skip 'join'
             idx, table_unit, table_name = parse_table_unit(toks, idx, tables_with_alias, schema)
             table_units.append((TABLE_TYPE['table_unit'], table_unit))
             default_tables.append(table_name)
-        if idx < len_ and toks[idx] == "on":
-            idx += 1
-            idx, this_conds = parse_condition(toks, idx, tables_with_alias, schema, default_tables)
-            if len(conds) > 0:
-                conds.append('and')
-            conds.extend(this_conds)
-        if isBlock and idx < len_ and toks[idx] == ')':
-            idx += 1  # Already handled above, just ensure we move past ')'
-        if idx < len_ and (toks[idx] in CLAUSE_KEYWORDS or toks[idx] in (")", ";")):
-            break
+
+            # Handle ON clause
+            if idx < len_ and toks[idx] == "on":
+                idx += 1
+                idx, this_conds = parse_condition(toks, idx, tables_with_alias, schema, default_tables)
+                if len(conds) > 0:
+                    conds.append('and')
+                conds.extend(this_conds)
+            # Handle USING clause
+            elif idx < len_ and toks[idx] == "using":
+                idx += 1
+                assert toks[idx] == '(', f"Expected '(' after USING, got {toks[idx]}"
+                idx += 1
+                col_name = toks[idx].lower()
+                idx += 1
+                assert toks[idx] == ')', f"Expected ')' after USING column, got {toks[idx]}"
+                idx += 1
+
+                if len(table_units) < 2:
+                    raise ValueError("USING requires at least two tables")
+                table1 = table_units[-2][1]  # Previous table
+                table2 = table_units[-1][1]  # Current table
+                table1_name = table1.split('__')[1]  # Extract table name
+                table2_name = table2.split('__')[1]
+                col_id1 = schema.idMap[f"{table1_name}.{col_name}"]
+                col_id2 = schema.idMap[f"{table2_name}.{col_name}"]
+                val_unit = (UNIT_OPS.index('none'), (AGG_OPS.index('none'), col_id1, False), None)
+                cond_unit = (False, WHERE_OPS.index('='), val_unit, (AGG_OPS.index('none'), col_id2, False), None)
+                if len(conds) > 0:
+                    conds.append('and')
+                conds.append(cond_unit)
+
+    if idx < len_ and (toks[idx] in CLAUSE_KEYWORDS or toks[idx] in (")", ";")):
+        return idx, table_units, conds, default_tables
+
     return idx, table_units, conds, default_tables
 
 def parse_where(toks, start_idx, tables_with_alias, schema, default_tables):
@@ -763,10 +790,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "world_1"
+    db = "pets_1"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT c.Name FROM country c WHERE EXISTS (     SELECT 1 FROM countrylanguage cl      WHERE cl.CountryCode = c.Code AND cl.Language = 'English' ) AND EXISTS (     SELECT 1 FROM countrylanguage cl      WHERE cl.CountryCode = c.Code AND cl.Language = 'French' );"""
+    p_str = """SELECT Fname FROM Student WHERE StuID IN (SELECT StuID FROM Has_Pet JOIN Pets USING(PetID) WHERE PetType = 'cat' INTERSECT SELECT StuID FROM Has_Pet JOIN Pets USING(PetID) WHERE PetType = 'dog');"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
