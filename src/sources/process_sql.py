@@ -290,7 +290,7 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         isBlock = True
         idx += 1
 
-    # Handle aggregation like SUM(...)
+    # Handle aggregation like AVG(...)
     if toks[idx] in AGG_OPS and toks[idx] != 'none':
         agg_id = AGG_OPS.index(toks[idx])
         idx += 1
@@ -300,50 +300,33 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         assert toks[idx] == ')', f"Expected ')' after aggregation"
         idx += 1
         if isBlock:
-            assert toks[idx] == ')', f"Expected closing ')' for block"
+            assert idx < len_ and toks[idx] == ')', f"Expected closing ')' for block"
             idx += 1
-        return idx, (UNIT_OPS.index('none'), (agg_id, val_unit, False), None)
-
-    # Parse the first value or column
-    idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-    if isinstance(val1, tuple) and len(val1) == 3:  # Already a col_unit
-        col_unit1 = val1
+        result = (UNIT_OPS.index('none'), (agg_id, val_unit, False), None)
     else:
-        col_unit1 = (AGG_OPS.index("none"), val1, False)
+        # Parse the first value or column
+        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+        if isinstance(val1, tuple) and len(val1) == 3:  # Already a col_unit
+            col_unit1 = val1
+        else:
+            col_unit1 = (AGG_OPS.index("none"), val1, False)
+        result = (UNIT_OPS.index('none'), col_unit1, None)
 
-    # Check for concatenation operator '||'
-    if idx < len_ and toks[idx] == '||':
-        unit_op = UNIT_OPS.index('+')  # Treat '||' as addition for string concatenation
+    # Check for arithmetic operators or concatenation
+    while idx < len_ and toks[idx] in UNIT_OPS + ('||',):
+        if toks[idx] == '||':
+            unit_op = UNIT_OPS.index('+')  # Treat '||' as addition for concatenation
+        else:
+            unit_op = UNIT_OPS.index(toks[idx])
         idx += 1
         idx, val2 = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
         col_unit2 = val2 if isinstance(val2, tuple) and len(val2) == 3 else (AGG_OPS.index("none"), val2, False)
-        result = (unit_op, col_unit1, col_unit2)
-        
-        # Handle multiple concatenations (e.g., first_name || ' ' || last_name)
-        while idx < len_ and toks[idx] == '||':
-            idx += 1
-            idx, val_next = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
-            col_unit_next = val_next if isinstance(val_next, tuple) and len(val_next) == 3 else (AGG_OPS.index("none"), val_next, False)
-            result = (UNIT_OPS.index('+'), result, col_unit_next)
-        
-        if isBlock:
-            assert toks[idx] == ')', f"Expected ')' but got {toks[idx]}"
-            idx += 1
-        return idx, result
-
-    # Default case: no operation or other UNIT_OPS
-    unit_op = UNIT_OPS.index('none')
-    col_unit2 = None
-    if idx < len_ and toks[idx] in UNIT_OPS:
-        unit_op = UNIT_OPS.index(toks[idx])
-        idx += 1
-        idx, val2 = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
-        col_unit2 = val2 if isinstance(val2, tuple) and len(val2) == 3 else (AGG_OPS.index("none"), val2, False)
+        result = (unit_op, result, col_unit2)
 
     if isBlock:
-        assert toks[idx] == ')', f"Expected ')' but got {toks[idx]}"
+        assert idx < len_ and toks[idx] == ')', f"Expected ')' but got {toks[idx]}"
         idx += 1
-    return idx, (unit_op, col_unit1, col_unit2)
+    return idx, result
 
 def parse_table_unit(toks, start_idx, tables_with_alias, schema):
     idx = start_idx
@@ -364,8 +347,38 @@ def parse_value(toks, start_idx, tables_with_alias, schema, default_tables=None)
         isBlock = True
         idx += 1
 
+    # Expanded list of SQLite functions
+    SQL_FUNCTIONS = [
+        'date', 'time', 'datetime', 'strftime', 'julianday',  # Date/time functions
+        'current_timestamp', 'current_date', 'current_time',
+        'abs', 'length', 'lower', 'upper', 'round', 'trim',  # Common scalar functions
+        'coalesce', 'nullif', 'substr', 'instr', 'replace'   # Additional useful functions
+    ]
+
+    # Handle SQL functions (including nested ones)
+    if (toks[idx].lower() in SQL_FUNCTIONS or 
+        (idx + 1 < len_ and toks[idx + 1] == '(')):  # Generic function detection
+        func_name = toks[idx].lower()
+        idx += 1  # Move to '('
+        if idx < len_ and toks[idx] == '(':
+            idx += 1  # Skip '('
+            args = []
+            while idx < len_ and toks[idx] != ')':
+                # Use parse_val_unit to handle arithmetic within function arguments
+                idx, arg = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+                args.append(arg)
+                if idx < len_ and toks[idx] == ',':
+                    idx += 1
+            assert idx < len_ and toks[idx] == ')', f"Expected ')' after {func_name} arguments, got {toks[idx]}"
+            idx += 1
+            val = {'func': func_name, 'args': args}
+        else:
+            # If no '(' follows, treat it as a column
+            idx = start_idx  # Reset to start
+            idx, col_unit = parse_col_unit(toks, idx, tables_with_alias, schema, default_tables)
+            val = col_unit
     # Handle CASE statements
-    if toks[idx].lower() == 'case':
+    elif toks[idx].lower() == 'case':
         case_expr = {'case': []}  # Structure: {'case': [(condition, value), ...], 'else': value}
         idx += 1  # Skip 'case'
         
@@ -396,27 +409,6 @@ def parse_value(toks, start_idx, tables_with_alias, schema, default_tables=None)
         assert idx < len_ and toks[idx].lower() == 'end', f"Expected 'END' to close CASE, got {toks[idx]}"
         idx += 1  # Skip 'end'
         val = case_expr
-
-    # Handle SQL time functions only if followed by '('
-    elif (toks[idx].lower() in ['date', 'time', 'datetime', 'strftime', 'current_timestamp', 'current_date', 'current_time']
-          and idx + 1 < len_ and toks[idx + 1] == '('):
-        func_name = toks[idx].lower()
-        idx += 1  # Move to '('
-        idx += 1  # Skip '('
-        if func_name in ['current_timestamp', 'current_date', 'current_time']:
-            assert idx < len_ and toks[idx] == ')', f"Expected ')' after {func_name}"
-            idx += 1
-            val = {'func': func_name, 'args': []}
-        else:
-            args = []
-            while idx < len_ and toks[idx] != ')':
-                idx, arg = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-                args.append(arg)
-                if idx < len_ and toks[idx] == ',':
-                    idx += 1
-            assert idx < len_ and toks[idx] == ')', f"Expected ')' after {func_name} arguments"
-            idx += 1
-            val = {'func': func_name, 'args': args}
     elif toks[idx] == 'select':
         idx, val = parse_sql(toks, idx, tables_with_alias, schema)
     elif toks[idx] == 'null':
@@ -430,7 +422,6 @@ def parse_value(toks, start_idx, tables_with_alias, schema, default_tables=None)
             val = float(toks[idx])
             idx += 1
         except ValueError:
-            # If token matches a time function but isn't followed by '(', treat it as a column
             idx, col_unit = parse_col_unit(toks, idx, tables_with_alias, schema, default_tables)
             val = col_unit
 
@@ -967,10 +958,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "student_transcripts_tracking"
+    db = "world_1"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT s.student_id,         s.first_name,         s.middle_name,         s.last_name,         COUNT(se.student_enrolment_id) AS enrollments  FROM Student_Enrolment se  JOIN Students s ON se.student_id = s.student_id  GROUP BY s.student_id  ORDER BY enrollments DESC  LIMIT 1;"""
+    p_str = """SELECT DISTINCT c.Name FROM country c JOIN countrylanguage cl ON c.Code = cl.CountryCode WHERE (cl.Language = 'English' OR cl.Language = 'Dutch') AND cl.IsOfficial = 'T';"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
