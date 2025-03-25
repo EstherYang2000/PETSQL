@@ -290,19 +290,28 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         isBlock = True
         idx += 1
 
-    # Handle aggregation like AVG(...)
+    # Handle aggregation like COUNT(...), including DISTINCT and CASE
     if toks[idx] in AGG_OPS and toks[idx] != 'none':
         agg_id = AGG_OPS.index(toks[idx])
         idx += 1
         assert toks[idx] == '(', f"Expected '(' after {toks[idx-1]}"
         idx += 1
-        idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
-        assert toks[idx] == ')', f"Expected ')' after aggregation"
+        isDistinct = False
+        if toks[idx] == 'distinct':
+            isDistinct = True
+            idx += 1
+        # Parse the entire expression inside the aggregation as a value
+        idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+        assert toks[idx] == ')', f"Expected ')' after aggregation, got {toks[idx]}"
         idx += 1
         if isBlock:
             assert idx < len_ and toks[idx] == ')', f"Expected closing ')' for block"
             idx += 1
-        result = (UNIT_OPS.index('none'), (agg_id, val_unit, False), None)
+        # If val is a col_unit, wrap it; otherwise, treat it as a value (e.g., CASE expression)
+        if isinstance(val, tuple) and len(val) == 3:  # col_unit
+            result = (UNIT_OPS.index('none'), (agg_id, val[1], isDistinct), None)
+        else:
+            result = (UNIT_OPS.index('none'), (agg_id, val, isDistinct), None)
     else:
         # Parse the first value or column
         idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
@@ -389,7 +398,21 @@ def parse_value(toks, start_idx, tables_with_alias, schema, default_tables=None)
                 if idx < len_ and toks[idx] in WHERE_OPS:
                     op_id = WHERE_OPS.index(toks[idx])
                     idx += 1
-                    idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                    val1 = None
+                    if op_id == WHERE_OPS.index("in"):
+                        assert toks[idx] == '(', f"Expected '(' after IN, got {toks[idx]}"
+                        idx += 1
+                        val_list = []
+                        while idx < len_ and toks[idx] != ')':
+                            idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                            val_list.append(val)
+                            if idx < len_ and toks[idx] == ',':
+                                idx += 1
+                        assert idx < len_ and toks[idx] == ')', f"Expected ')' after IN list, got {toks[idx]}"
+                        idx += 1
+                        val1 = val_list
+                    else:
+                        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
                     condition = (op_id, val_unit, val1)
                 else:
                     condition = val_unit
@@ -1015,10 +1038,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "student_transcripts_tracking"
+    db = "pets_1"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT s.last_name FROM Students s JOIN Addresses a ON s.current_address_id = a.address_id LEFT JOIN Student_Enrolment se ON s.student_id = se.student_id WHERE a.state_province_county = 'North Carolina'   AND se.student_id IS NULL;"""
+    p_str = """SELECT S.Fname FROM Student AS S WHERE S.StuID IN (     SELECT HP.StuID     FROM Has_Pet AS HP     JOIN Pets AS P ON HP.PetID = P.PetID     GROUP BY HP.StuID     HAVING COUNT(DISTINCT CASE WHEN P.PetType IN ('cat','dog') THEN P.PetType END) = 2 );"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
