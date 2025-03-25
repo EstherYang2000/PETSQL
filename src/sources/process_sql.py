@@ -653,13 +653,29 @@ def parse_select(toks, start_idx, tables_with_alias, schema, default_tables=None
     aliases = {}  # Map alias names to their val_units
 
     while idx < len_ and toks[idx] not in CLAUSE_KEYWORDS:
-        agg_id = AGG_OPS.index("none")
-        if toks[idx] in AGG_OPS:
-            agg_id = AGG_OPS.index(toks[idx])
-            idx += 1
-        idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
-        current_val_unit = (agg_id, val_unit)
-        val_units.append(current_val_unit)
+        # Handle alias.* (e.g., A.*) explicitly
+        if idx + 1 < len_ and toks[idx].endswith('.') and toks[idx + 1] == '*':
+            alias = toks[idx][:-1]  # Remove the trailing dot
+            if alias not in tables_with_alias:
+                raise ValueError(f"Error: Alias '{alias}' not found in tables_with_alias")
+            table_name = tables_with_alias[alias]
+            col_id = f"__{table_name}.*__"  # Represent all columns from the table
+            if col_id not in schema.idMap:
+                # If not in idMap, use '*' and rely on table context
+                col_id = '__all__'
+            val_unit = (UNIT_OPS.index('none'), (AGG_OPS.index('none'), col_id, False), None)
+            current_val_unit = (AGG_OPS.index('none'), val_unit)
+            val_units.append(current_val_unit)
+            idx += 2  # Skip 'alias.' and '*'
+        else:
+            agg_id = AGG_OPS.index('none')
+            if toks[idx] in AGG_OPS:
+                agg_id = AGG_OPS.index(toks[idx])
+                idx += 1
+            idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+            current_val_unit = (agg_id, val_unit)
+            val_units.append(current_val_unit)
+
         if idx < len_ and toks[idx].lower() == 'as':
             idx += 1
             alias_name = toks[idx]
@@ -1038,10 +1054,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "pets_1"
+    db = "student_transcripts_tracking"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT S.Fname FROM Student AS S WHERE S.StuID IN (     SELECT HP.StuID     FROM Has_Pet AS HP     JOIN Pets AS P ON HP.PetID = P.PetID     GROUP BY HP.StuID     HAVING COUNT(DISTINCT CASE WHEN P.PetType IN ('cat','dog') THEN P.PetType END) = 2 );"""
+    p_str = """SELECT DISTINCT A.*  FROM Addresses A  WHERE A.address_id IN (   SELECT current_address_id FROM Students    UNION    SELECT permanent_address_id FROM Students );"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
