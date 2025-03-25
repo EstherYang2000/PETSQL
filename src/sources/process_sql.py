@@ -207,7 +207,6 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
         if table in schema.subquery_schemas:  # Check subquery schema first
             cols = schema.subquery_schemas[table]
             if tok_lower in cols:
-                # For subquery columns, use a unique identifier
                 return start_idx + 1, f"__{table}.{tok_lower}__"
         else:  # Check base schema
             cols = schema.schema.get(table, [])
@@ -237,7 +236,13 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
             return start_idx + 1, schema.idMap[key_lower]
         raise ValueError(f"Error col: {tok} - key {key_lower} not in idMap")
     elif len(possible_keys) > 1:
-        raise ValueError(f"Ambiguous column: {tok} - matches {possible_keys}")
+        # Resolve ambiguity by choosing the first table in default_tables
+        chosen_key = possible_keys[0]  # Default to the first match
+        print(f"Warning: Ambiguous column '{tok}' matches {possible_keys}. Defaulting to '{chosen_key}'")
+        key_lower = chosen_key.lower()
+        if key_lower in schema.idMap:
+            return start_idx + 1, schema.idMap[key_lower]
+        raise ValueError(f"Error col: {tok} - chosen key {key_lower} not in idMap")
     raise ValueError(f"Error col: {tok} - not found in schema")
 
 def parse_col_unit(toks, start_idx, tables_with_alias, schema, default_tables=None):
@@ -857,10 +862,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "flight_2"
+    db = "employee_hire_evaluation"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT ac FROM (SELECT SourceAirport AS ac FROM flights UNION ALL SELECT DestAirport AS ac FROM flights) GROUP BY ac ORDER BY COUNT(*) ASC LIMIT 1;"""
+    p_str = """SELECT District FROM shop GROUP BY District HAVING COUNT(CASE WHEN Number_products < 3000 THEN 1 END) > 0    AND COUNT(CASE WHEN Number_products > 10000 THEN 1 END) > 0;"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
