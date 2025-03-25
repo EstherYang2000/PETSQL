@@ -706,18 +706,36 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
         idx += 1  # Skip '('
         subquery_start = idx
         if toks[idx] == 'select':
-            # Find the table used in the subquery before parsing it fully
+            # Initialize with fallback
+            sub_default_tables = list(schema.schema.keys())
+            # Find the table used in the subquery
             sub_from_idx = subquery_start
-            while sub_from_idx < len_ and toks[sub_from_idx] != 'from':
+            paren_count = 0
+            while sub_from_idx < len_:
+                if toks[sub_from_idx] == '(':
+                    paren_count += 1
+                elif toks[sub_from_idx] == ')':
+                    paren_count -= 1
+                    if paren_count == 0:
+                        break
+                elif toks[sub_from_idx] == 'from' and paren_count == 1:
+                    sub_from_idx += 1
+                    if sub_from_idx < len_ and toks[sub_from_idx] == '(':
+                        nested_from_idx = sub_from_idx + 1
+                        while nested_from_idx < len_ and toks[nested_from_idx] != 'from':
+                            nested_from_idx += 1
+                        if nested_from_idx < len_ and toks[nested_from_idx] == 'from':
+                            nested_from_idx += 1
+                            sub_table = toks[nested_from_idx]
+                            sub_default_tables = [sub_table]
+                        break
+                    else:
+                        sub_table = toks[sub_from_idx]
+                        sub_default_tables = [sub_table]
+                        break
                 sub_from_idx += 1
-            if sub_from_idx < len_ and toks[sub_from_idx] == 'from':
-                sub_from_idx += 1
-                sub_table = toks[sub_from_idx]  # e.g., 'car_makers'
-                sub_default_tables = [sub_table]
-            else:
-                sub_default_tables = list(schema.schema.keys())  # Fallback
 
-            idx, sql = parse_sql(toks, idx, tables_with_alias, schema)
+            idx, sql = parse_sql(toks, subquery_start, tables_with_alias, schema)
             assert idx < len_ and toks[idx] == ')', f"Expected ')' after subquery, got {toks[idx]}"
             subquery_end = idx
             idx += 1  # Skip ')'
@@ -736,7 +754,8 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
             default_tables.append(alias)
             table_units.append((TABLE_TYPE['sql'], sql))
 
-            # Extract output column aliases from subquery's SELECT clause
+            # Use the subquery alias as the default table for its SELECT clause
+            sub_default_tables = [alias]
             sub_idx, sub_select, subquery_aliases = parse_select(toks, subquery_start, tables_with_alias, schema, default_tables=sub_default_tables)
             subquery_cols = []
             is_distinct, val_units = sql['select']
@@ -776,17 +795,34 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
                 idx += 1
                 subquery_start = idx
                 if toks[idx] == 'select':
+                    sub_default_tables = list(schema.schema.keys())
                     sub_from_idx = subquery_start
-                    while sub_from_idx < len_ and toks[sub_from_idx] != 'from':
+                    paren_count = 0
+                    while sub_from_idx < len_:
+                        if toks[sub_from_idx] == '(':
+                            paren_count += 1
+                        elif toks[sub_from_idx] == ')':
+                            paren_count -= 1
+                            if paren_count == 0:
+                                break
+                        elif toks[sub_from_idx] == 'from' and paren_count == 1:
+                            sub_from_idx += 1
+                            if sub_from_idx < len_ and toks[sub_from_idx] == '(':
+                                nested_from_idx = sub_from_idx + 1
+                                while nested_from_idx < len_ and toks[nested_from_idx] != 'from':
+                                    nested_from_idx += 1
+                                if nested_from_idx < len_ and toks[nested_from_idx] == 'from':
+                                    nested_from_idx += 1
+                                    sub_table = toks[nested_from_idx]
+                                    sub_default_tables = [sub_table]
+                                break
+                            else:
+                                sub_table = toks[sub_from_idx]
+                                sub_default_tables = [sub_table]
+                                break
                         sub_from_idx += 1
-                    if sub_from_idx < len_ and toks[sub_from_idx] == 'from':
-                        sub_from_idx += 1
-                        sub_table = toks[sub_from_idx]
-                        sub_default_tables = [sub_table]
-                    else:
-                        sub_default_tables = list(schema.schema.keys())
 
-                    idx, sql = parse_sql(toks, idx, tables_with_alias, schema)
+                    idx, sql = parse_sql(toks, subquery_start, tables_with_alias, schema)
                     assert idx < len_ and toks[idx] == ')', f"Expected ')' after subquery, got {toks[idx]}"
                     subquery_end = idx
                     idx += 1
@@ -805,6 +841,7 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
                     default_tables.append(alias)
                     table_units.append((TABLE_TYPE['sql'], sql))
 
+                    sub_default_tables = [alias]
                     sub_idx, sub_select, subquery_aliases = parse_select(toks, subquery_start, tables_with_alias, schema, default_tables=sub_default_tables)
                     subquery_cols = []
                     is_distinct, val_units = sql['select']
@@ -1089,10 +1126,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "car_1"
+    db = "student_transcripts_tracking"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT COUNT(*) FROM (SELECT Country FROM car_makers GROUP BY Country HAVING COUNT(*) > 2)"""
+    p_str = """SELECT A.address_id, A.line_1, A.line_2 FROM Addresses A JOIN (   SELECT address_id, COUNT(*) AS student_count   FROM (     SELECT current_address_id AS address_id FROM Students     UNION ALL     SELECT permanent_address_id FROM Students   )   GROUP BY address_id ) S ON A.address_id = S.address_id ORDER BY student_count DESC LIMIT 1;"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
