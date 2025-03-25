@@ -579,6 +579,7 @@ def parse_select(toks, start_idx, tables_with_alias, schema, default_tables=None
         idx += 1
         isDistinct = True
     val_units = []
+    aliases = {}  # Map alias names to their val_units
 
     while idx < len_ and toks[idx] not in CLAUSE_KEYWORDS:
         agg_id = AGG_OPS.index("none")
@@ -586,12 +587,16 @@ def parse_select(toks, start_idx, tables_with_alias, schema, default_tables=None
             agg_id = AGG_OPS.index(toks[idx])
             idx += 1
         idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
-        val_units.append((agg_id, val_unit))
+        current_val_unit = (agg_id, val_unit)
+        val_units.append(current_val_unit)
         if idx < len_ and toks[idx].lower() == 'as':
-            idx += 2
+            idx += 1
+            alias_name = toks[idx]
+            aliases[alias_name] = current_val_unit
+            idx += 1
         if idx < len_ and toks[idx] == ',':
             idx += 1
-    return idx, (isDistinct, val_units)
+    return idx, (isDistinct, val_units), aliases
 
 def parse_from(toks, start_idx, tables_with_alias, schema):
     assert 'from' in toks[start_idx:], "'from' not found"
@@ -774,7 +779,7 @@ def parse_group_by(toks, start_idx, tables_with_alias, schema, default_tables):
             break
     return idx, col_units
 
-def parse_order_by(toks, start_idx, tables_with_alias, schema, default_tables):
+def parse_order_by(toks, start_idx, tables_with_alias, schema, default_tables, select_aliases):
     idx = start_idx
     len_ = len(toks)
     val_units = []
@@ -785,8 +790,20 @@ def parse_order_by(toks, start_idx, tables_with_alias, schema, default_tables):
     assert toks[idx] == 'by', f"Expected 'by' after 'order'"
     idx += 1
     while idx < len_ and toks[idx] not in CLAUSE_KEYWORDS and toks[idx] not in (")", ";"):
-        idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
-        val_units.append(val_unit)
+        if toks[idx] in select_aliases:
+            agg_id, val_unit = select_aliases[toks[idx]]
+            # If there's an aggregation, wrap it into col_unit1, keeping val_unit as (unit_op, col_unit1, col_unit2)
+            if agg_id != AGG_OPS.index("none"):
+                # Extract the base col_unit and wrap it with the aggregation
+                unit_op, base_col_unit, col_unit2 = val_unit
+                col_unit1 = (agg_id, base_col_unit[1], base_col_unit[2])  # (agg_id, col_id, isDistinct)
+                val_units.append((unit_op, col_unit1, col_unit2))
+            else:
+                val_units.append(val_unit)  # No aggregation, use as-is
+            idx += 1
+        else:
+            idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+            val_units.append(val_unit)
         if idx < len_ and toks[idx] in ORDER_OPS:
             order_type = toks[idx]
             idx += 1
@@ -818,7 +835,6 @@ def parse_sql(toks, start_idx, tables_with_alias, schema):
         isBlock = False
         len_ = len(toks)
         idx = start_idx
-        # Initialize sql with all required keys to avoid missing key errors
         sql = {
             'select': (False, []),
             'from': {'table_units': [], 'conds': []},
@@ -849,10 +865,11 @@ def parse_sql(toks, start_idx, tables_with_alias, schema):
         while select_idx < len_ and toks[select_idx].lower() != 'select':
             select_idx += 1
         if select_idx < len_:
-            next_idx, select_col_units = parse_select(toks, select_idx, tables_with_alias, schema, default_tables)
+            next_idx, select_col_units, select_aliases = parse_select(toks, select_idx, tables_with_alias, schema, default_tables)
             sql['select'] = select_col_units
         else:
             next_idx = idx
+            select_aliases = {}
 
         idx = from_end_idx
         idx, where_conds = parse_where(toks, idx, tables_with_alias, schema, default_tables)
@@ -861,7 +878,7 @@ def parse_sql(toks, start_idx, tables_with_alias, schema):
         sql['groupBy'] = group_col_units
         idx, having_conds = parse_having(toks, idx, tables_with_alias, schema, default_tables)
         sql['having'] = having_conds
-        idx, order_col_units = parse_order_by(toks, idx, tables_with_alias, schema, default_tables)
+        idx, order_col_units = parse_order_by(toks, idx, tables_with_alias, schema, default_tables, select_aliases)
         sql['orderBy'] = order_col_units
         idx, limit_val = parse_limit(toks, idx)
         sql['limit'] = limit_val
@@ -879,7 +896,6 @@ def parse_sql(toks, start_idx, tables_with_alias, schema):
             idx, iue_sql = parse_sql(toks, idx, tables_with_alias, schema)
             sql[sql_op] = iue_sql
 
-        # Ensure nested SQL dictionaries are fully initialized
         def ensure_full_sql_structure(sql_dict):
             required_keys = {
                 'select': (False, []),
@@ -896,15 +912,14 @@ def parse_sql(toks, start_idx, tables_with_alias, schema):
             for key, default in required_keys.items():
                 if key not in sql_dict:
                     sql_dict[key] = default
-            # Recursively check nested SQL
             for key in ['intersect', 'union', 'except']:
                 if sql_dict[key] is not None:
                     ensure_full_sql_structure(sql_dict[key])
             for cond in sql_dict['where']:
-                if isinstance(cond, tuple) and len(cond) == 5:  # cond_unit
-                    if isinstance(cond[3], dict):  # val1
+                if isinstance(cond, tuple) and len(cond) == 5:
+                    if isinstance(cond[3], dict):
                         ensure_full_sql_structure(cond[3])
-                    if isinstance(cond[4], dict):  # val2
+                    if isinstance(cond[4], dict):
                         ensure_full_sql_structure(cond[4])
             for cond in sql_dict['from']['conds']:
                 if isinstance(cond, tuple) and len(cond) == 5:
