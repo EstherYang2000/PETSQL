@@ -317,7 +317,7 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         isBlock = True
         idx += 1
 
-    # Handle aggregation like COUNT(...), SUM(...), including arithmetic expressions
+    # Parse the first value or aggregation
     if toks[idx] in AGG_OPS and toks[idx] != 'none':
         agg_id = AGG_OPS.index(toks[idx])
         idx += 1
@@ -327,48 +327,35 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         if toks[idx] == 'distinct':
             isDistinct = True
             idx += 1
-        # Parse the entire expression inside the aggregation
         idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-        # Handle arithmetic operations within the aggregation
-        while idx < len_ and toks[idx] in UNIT_OPS + ('||',):
-            if toks[idx] == '||':
-                unit_op = UNIT_OPS.index('+')  # Treat '||' as concatenation
-            else:
-                unit_op = UNIT_OPS.index(toks[idx])
-            idx += 1
-            idx, val2 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-            val = (unit_op, 
-                   (AGG_OPS.index('none'), val, False) if not isinstance(val, tuple) or len(val) != 3 else val,
-                   (AGG_OPS.index('none'), val2, False) if not isinstance(val2, tuple) or len(val2) != 3 else val2)
         assert idx < len_ and toks[idx] == ')', f"Expected ')' after aggregation, got {toks[idx]}"
         idx += 1
-        if isBlock:
-            assert idx < len_ and toks[idx] == ')', f"Expected closing ')' for block"
-            idx += 1
-        # Wrap the result with the aggregation
-        result = (UNIT_OPS.index('none'), (agg_id, val, isDistinct), None)
+        col_unit1 = (agg_id, val, isDistinct)
+        result = (UNIT_OPS.index('none'), col_unit1, None)
     else:
-        # Parse the first value or column
         idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-        if isinstance(val1, tuple) and len(val1) == 3:  # Already a col_unit
+        if isinstance(val1, tuple) and len(val1) == 3:
             col_unit1 = val1
         else:
             col_unit1 = (AGG_OPS.index("none"), val1, False)
         result = (UNIT_OPS.index('none'), col_unit1, None)
 
-        # Check for arithmetic operators or concatenation outside aggregation
-        while idx < len_ and toks[idx] in UNIT_OPS + ('||',):
-            if toks[idx] == '||':
-                unit_op = UNIT_OPS.index('+')  # Treat '||' as addition for concatenation
-            else:
-                unit_op = UNIT_OPS.index(toks[idx])
-            idx += 1
-            idx, val2 = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
-            col_unit2 = val2 if isinstance(val2, tuple) and len(val2) == 3 else (AGG_OPS.index("none"), val2, False)
-            result = (unit_op, result, col_unit2)
-
-    if isBlock and idx < len_ and toks[idx] == ')':
+    # Handle arithmetic operations
+    while idx < len_ and toks[idx] in UNIT_OPS + ('||',):
+        if toks[idx] == '||':
+            unit_op = UNIT_OPS.index('+')  # Treat '||' as concatenation
+        else:
+            unit_op = UNIT_OPS.index(toks[idx])
         idx += 1
+        idx, val2 = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+        col_unit2 = val2 if isinstance(val2, tuple) and len(val2) == 3 else (AGG_OPS.index("none"), val2, False)
+        result = (unit_op, result, col_unit2)
+
+    # Only check for closing parenthesis if this is a block
+    if isBlock:
+        assert idx < len_ and toks[idx] == ')', f"Expected closing ')' for block, got {toks[idx]}"
+        idx += 1
+
     return idx, result
 
 def parse_table_unit(toks, start_idx, tables_with_alias, schema):
@@ -684,22 +671,16 @@ def parse_select(toks, start_idx, tables_with_alias, schema, default_tables=None
         idx += 1
         isDistinct = True
     val_units = []
-    aliases = {}  # Map alias names to their val_units
+    aliases = {}
 
-    while idx < len_ and toks[idx] not in CLAUSE_KEYWORDS and toks[idx] != ';':
-        if idx + 1 < len_ and toks[idx].endswith('.') and toks[idx + 1] == '*':
-            alias = toks[idx][:-1]
-            if alias not in tables_with_alias:
-                raise ValueError(f"Error: Alias '{alias}' not found in tables_with_alias")
-            table_name = tables_with_alias[alias]
-            col_id = f"__{table_name}.*__"
-            if col_id not in schema.idMap:
-                col_id = '__all__'
-            val_unit = (UNIT_OPS.index('none'), (AGG_OPS.index('none'), col_id, False), None)
-            current_val_unit = (AGG_OPS.index('none'), val_unit)
-            val_units.append(current_val_unit)
-            idx += 2
-        else:
+    # Check if the SELECT clause starts with a parenthesized expression
+    if idx < len_ and toks[idx] == '(':
+        # Parse the entire expression as a single val_unit
+        idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+        val_units.append((AGG_OPS.index('none'), val_unit))
+    else:
+        # Existing logic for multiple columns (not applicable here)
+        while idx < len_ and toks[idx] not in CLAUSE_KEYWORDS and toks[idx] != ';':
             agg_id = AGG_OPS.index('none')
             if toks[idx] in AGG_OPS:
                 agg_id = AGG_OPS.index(toks[idx])
@@ -707,14 +688,21 @@ def parse_select(toks, start_idx, tables_with_alias, schema, default_tables=None
             idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
             current_val_unit = (agg_id, val_unit)
             val_units.append(current_val_unit)
+            if idx < len_ and toks[idx].lower() == 'as':
+                idx += 1
+                alias_name = toks[idx]
+                aliases[alias_name] = current_val_unit
+                idx += 1
+            if idx < len_ and toks[idx] == ',':
+                idx += 1
 
-        if idx < len_ and toks[idx].lower() == 'as':
-            idx += 1
-            alias_name = toks[idx]
-            aliases[alias_name] = current_val_unit
-            idx += 1
-        if idx < len_ and toks[idx] == ',':
-            idx += 1
+    # Handle alias after the expression
+    if idx < len_ and toks[idx].lower() == 'as':
+        idx += 1
+        alias_name = toks[idx]
+        aliases[alias_name] = val_units[-1]
+        idx += 1
+
     return idx, (isDistinct, val_units), aliases
 
 def parse_from(toks, start_idx, tables_with_alias, schema):
@@ -1102,10 +1090,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "world_1"
+    db = "wta_1"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT Language FROM countrylanguage AS cl  JOIN country AS c ON cl.CountryCode = c.Code  WHERE Continent = 'Asia'  GROUP BY Language  ORDER BY SUM(Population * Percentage / 100) DESC  LIMIT 1;"""
+    p_str = """SELECT (SUM(loser_age) + SUM(winner_age)) / (COUNT(loser_age) + COUNT(winner_age)) AS average_age FROM matches;"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
