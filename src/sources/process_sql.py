@@ -440,61 +440,111 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
         not_op = False
         if toks[idx] == "(":
             idx += 1
-            # Parse the entire condition inside parentheses
-            idx, sub_conds = parse_condition(toks, idx, tables_with_alias, schema, default_tables)
-            assert idx < len_ and toks[idx] == ")", f"Expected ')' but got {toks[idx]}"
-            idx += 1  # Skip ')'
+            if idx < len_ and toks[idx] == "select":
+                # Parse subquery as a value, not a condition
+                idx, subquery = parse_sql(toks, idx, tables_with_alias, schema)
+                assert idx < len_ and toks[idx] == ")", f"Expected ')' but got {toks[idx]}"
+                idx += 1  # Skip ')'
 
-            # If followed by a WHERE_OP, treat sub_conds as part of a larger condition
-            if idx < len_ and toks[idx] == "not":
-                not_op = True
-                idx += 1
-
-            if idx < len_ and toks[idx] in WHERE_OPS:
-                op_id = WHERE_OPS.index(toks[idx])
-                idx += 1
-                val1 = val2 = None
-
-                if op_id == WHERE_OPS.index("between"):
-                    idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-                    assert toks[idx] == "and"
+                if idx < len_ and toks[idx] == "not":
+                    not_op = True
                     idx += 1
-                    idx, val2 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-                elif op_id == WHERE_OPS.index("in"):
-                    assert toks[idx] == "(", f"Expected '(' but got {toks[idx]}"
+
+                if idx < len_ and toks[idx] in WHERE_OPS:
+                    op_id = WHERE_OPS.index(toks[idx])
                     idx += 1
-                    if toks[idx] == "select":
-                        idx, val1 = parse_sql(toks, idx, tables_with_alias, schema)
-                    else:
-                        val_list = []
-                        while idx < len_ and toks[idx] != ")":
-                            idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-                            val_list.append(val)
-                            if toks[idx] == ",":
-                                idx += 1
-                        assert toks[idx] == ")"
+                    val1 = val2 = None
+
+                    if op_id == WHERE_OPS.index("between"):
+                        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                        assert toks[idx] == "and"
                         idx += 1
-                        val1 = val_list
-                elif op_id == WHERE_OPS.index("like"):
-                    idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-                elif op_id == WHERE_OPS.index("is"):
-                    if idx < len_ and toks[idx] == "not":
-                        not_op = True
+                        idx, val2 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                    elif op_id == WHERE_OPS.index("in"):
+                        assert toks[idx] == "(", f"Expected '(' but got {toks[idx]}"
                         idx += 1
-                    assert idx < len_ and toks[idx] == "null", f"Expected 'null' but got {toks[idx]}"
-                    val1 = "NULL"
-                    idx += 1
-                else:  # Comparison operators
-                    idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                        if toks[idx] == "select":
+                            idx, val1 = parse_sql(toks, idx, tables_with_alias, schema)
+                        else:
+                            val_list = []
+                            while idx < len_ and toks[idx] != ")":
+                                idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                                val_list.append(val)
+                                if toks[idx] == ",":
+                                    idx += 1
+                            assert toks[idx] == ")"
+                            idx += 1
+                            val1 = val_list
+                    elif op_id == WHERE_OPS.index("like"):
+                        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                    elif op_id == WHERE_OPS.index("is"):
+                        if idx < len_ and toks[idx] == "not":
+                            not_op = True
+                            idx += 1
+                        assert idx < len_ and toks[idx] == "null", f"Expected 'null' but got {toks[idx]}"
+                        val1 = "NULL"
+                        idx += 1
+                    else:  # Comparison operators
+                        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
 
-                # Convert sub_conds to a val_unit if necessary
-                if len(sub_conds) == 1 and isinstance(sub_conds[0], tuple):
-                    val_unit = sub_conds[0][2]  # Extract val_unit from the condition
+                    val_unit = (UNIT_OPS.index("none"), (AGG_OPS.index("none"), subquery, False), None)
                     conds.append((not_op, op_id, val_unit, val1, val2))
                 else:
-                    raise ValueError("Parenthesized condition must resolve to a single val_unit for comparison")
+                    raise ValueError("Subquery in parentheses must be followed by a comparison operator")
             else:
-                conds.extend(sub_conds)
+                # Parse regular condition inside parentheses
+                idx, sub_conds = parse_condition(toks, idx, tables_with_alias, schema, default_tables)
+                assert idx < len_ and toks[idx] == ")", f"Expected ')' but got {toks[idx]}"
+                idx += 1  # Skip ')'
+
+                if idx < len_ and toks[idx] == "not":
+                    not_op = True
+                    idx += 1
+
+                if idx < len_ and toks[idx] in WHERE_OPS:
+                    op_id = WHERE_OPS.index(toks[idx])
+                    idx += 1
+                    val1 = val2 = None
+
+                    if op_id == WHERE_OPS.index("between"):
+                        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                        assert toks[idx] == "and"
+                        idx += 1
+                        idx, val2 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                    elif op_id == WHERE_OPS.index("in"):
+                        assert toks[idx] == "(", f"Expected '(' but got {toks[idx]}"
+                        idx += 1
+                        if toks[idx] == "select":
+                            idx, val1 = parse_sql(toks, idx, tables_with_alias, schema)
+                        else:
+                            val_list = []
+                            while idx < len_ and toks[idx] != ")":
+                                idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                                val_list.append(val)
+                                if toks[idx] == ",":
+                                    idx += 1
+                            assert toks[idx] == ")"
+                            idx += 1
+                            val1 = val_list
+                    elif op_id == WHERE_OPS.index("like"):
+                        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                    elif op_id == WHERE_OPS.index("is"):
+                        if idx < len_ and toks[idx] == "not":
+                            not_op = True
+                            idx += 1
+                        assert idx < len_ and toks[idx] == "null", f"Expected 'null' but got {toks[idx]}"
+                        val1 = "NULL"
+                        idx += 1
+                    else:
+                        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+
+                    if len(sub_conds) == 1 and isinstance(sub_conds[0], tuple):
+                        val_unit = sub_conds[0][2]
+                        conds.append((not_op, op_id, val_unit, val1, val2))
+                    else:
+                        raise ValueError("Parenthesized condition must resolve to a single val_unit for comparison")
+                else:
+                    conds.extend(sub_conds)
         else:
             # Check for EXISTS or NOT EXISTS
             if idx < len_ and toks[idx] == "not":
@@ -964,10 +1014,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "world_1"
+    db = "student_transcripts_tracking"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT DISTINCT c.Name FROM country c JOIN countrylanguage cl ON c.Code = cl.CountryCode WHERE (cl.Language = 'English' OR cl.Language = 'Dutch') AND cl.IsOfficial = 'T';"""
+    p_str = """SELECT s.last_name FROM Students s JOIN Addresses a ON s.current_address_id = a.address_id LEFT JOIN Student_Enrolment se ON s.student_id = se.student_id WHERE a.state_province_county = 'North Carolina'   AND se.student_id IS NULL;"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
