@@ -308,7 +308,23 @@ def parse_col_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         assert toks[idx] == ')'
         idx += 1
     return idx, (agg_id, col_id, isDistinct)
+def parse_expression(toks, start_idx, tables_with_alias, schema, default_tables=None):
+    """Parse an expression, including comparisons, inside aggregations."""
+    idx = start_idx
+    len_ = len(toks)
 
+    # Parse the left-hand side of the expression
+    idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+
+    # Check for a comparison operator
+    if idx < len_ and toks[idx] in WHERE_OPS:
+        op_id = WHERE_OPS.index(toks[idx])
+        idx += 1
+        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+        return idx, {'expr': (op_id, val_unit, val1)}
+    
+    # If no comparison operator, return the val_unit as is
+    return idx, val_unit
 def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=None):
     idx = start_idx
     len_ = len(toks)
@@ -327,7 +343,8 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         if toks[idx] == 'distinct':
             isDistinct = True
             idx += 1
-        idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+        # Parse the expression inside the aggregation
+        idx, val = parse_expression(toks, idx, tables_with_alias, schema, default_tables)
         assert idx < len_ and toks[idx] == ')', f"Expected ')' after aggregation, got {toks[idx]}"
         idx += 1
         col_unit1 = (agg_id, val, isDistinct)
@@ -340,7 +357,7 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
             col_unit1 = (AGG_OPS.index("none"), val1, False)
         result = (UNIT_OPS.index('none'), col_unit1, None)
 
-    # Handle arithmetic operations
+    # Handle arithmetic operations outside the aggregation
     while idx < len_ and toks[idx] in UNIT_OPS + ('||',):
         if toks[idx] == '||':
             unit_op = UNIT_OPS.index('+')  # Treat '||' as concatenation
@@ -351,7 +368,6 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         col_unit2 = val2 if isinstance(val2, tuple) and len(val2) == 3 else (AGG_OPS.index("none"), val2, False)
         result = (unit_op, result, col_unit2)
 
-    # Only check for closing parenthesis if this is a block
     if isBlock:
         assert idx < len_ and toks[idx] == ')', f"Expected closing ')' for block, got {toks[idx]}"
         idx += 1
@@ -1090,10 +1106,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "wta_1"
+    db = "car_1"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT (SUM(loser_age) + SUM(winner_age)) / (COUNT(loser_age) + COUNT(winner_age)) AS average_age FROM matches;"""
+    p_str = """SELECT c.CountryId, c.CountryName  FROM countries c  JOIN car_makers cm ON c.CountryId = cm.Country  JOIN model_list ml ON cm.Id = ml.Maker  GROUP BY c.CountryId  HAVING COUNT(DISTINCT cm.Id) > 3     OR SUM(ml.Model = 'fiat') > 0;"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
