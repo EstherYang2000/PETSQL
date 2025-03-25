@@ -437,15 +437,15 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
     print(f"Parsing condition at {idx}: {toks[idx:]}")
 
     while idx < len_:
+        not_op = False
         if toks[idx] == "(":
             idx += 1
-            # Parse the content inside parentheses as a val_unit (could be a subquery)
-            idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+            # Parse the entire condition inside parentheses
+            idx, sub_conds = parse_condition(toks, idx, tables_with_alias, schema, default_tables)
             assert idx < len_ and toks[idx] == ")", f"Expected ')' but got {toks[idx]}"
             idx += 1  # Skip ')'
 
-            # Check if this is part of a comparison
-            not_op = False
+            # If followed by a WHERE_OP, treat sub_conds as part of a larger condition
             if idx < len_ and toks[idx] == "not":
                 not_op = True
                 idx += 1
@@ -484,13 +484,19 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
                     assert idx < len_ and toks[idx] == "null", f"Expected 'null' but got {toks[idx]}"
                     val1 = "NULL"
                     idx += 1
-                else:  # Comparison operators: =, >, <, >=, <=, !=, <>
+                else:  # Comparison operators
                     idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
 
-                conds.append((not_op, op_id, val_unit, val1, val2))
+                # Convert sub_conds to a val_unit if necessary
+                if len(sub_conds) == 1 and isinstance(sub_conds[0], tuple):
+                    val_unit = sub_conds[0][2]  # Extract val_unit from the condition
+                    conds.append((not_op, op_id, val_unit, val1, val2))
+                else:
+                    raise ValueError("Parenthesized condition must resolve to a single val_unit for comparison")
+            else:
+                conds.extend(sub_conds)
         else:
             # Check for EXISTS or NOT EXISTS
-            not_op = False
             if idx < len_ and toks[idx] == "not":
                 not_op = True
                 idx += 1
@@ -511,44 +517,44 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
                     not_op = True
                     idx += 1
 
-                assert idx < len_ and toks[idx] in WHERE_OPS, f"Unexpected token {toks[idx]} in WHERE clause"
-                op_id = WHERE_OPS.index(toks[idx])
-                idx += 1
-                val1 = val2 = None
+                if idx < len_ and toks[idx] in WHERE_OPS:
+                    op_id = WHERE_OPS.index(toks[idx])
+                    idx += 1
+                    val1 = val2 = None
 
-                if op_id == WHERE_OPS.index("between"):
-                    idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-                    assert toks[idx] == "and"
-                    idx += 1
-                    idx, val2 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-                elif op_id == WHERE_OPS.index("in"):
-                    assert toks[idx] == "(", f"Expected '(' but got {toks[idx]}"
-                    idx += 1
-                    if toks[idx] == "select":
-                        idx, val1 = parse_sql(toks, idx, tables_with_alias, schema)
+                    if op_id == WHERE_OPS.index("between"):
+                        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                        assert toks[idx] == "and"
+                        idx += 1
+                        idx, val2 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                    elif op_id == WHERE_OPS.index("in"):
+                        assert toks[idx] == "(", f"Expected '(' but got {toks[idx]}"
+                        idx += 1
+                        if toks[idx] == "select":
+                            idx, val1 = parse_sql(toks, idx, tables_with_alias, schema)
+                        else:
+                            val_list = []
+                            while idx < len_ and toks[idx] != ")":
+                                idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                                val_list.append(val)
+                                if toks[idx] == ",":
+                                    idx += 1
+                            assert toks[idx] == ")"
+                            idx += 1
+                            val1 = val_list
+                    elif op_id == WHERE_OPS.index("like"):
+                        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                    elif op_id == WHERE_OPS.index("is"):
+                        if idx < len_ and toks[idx] == "not":
+                            not_op = True
+                            idx += 1
+                        assert idx < len_ and toks[idx] == "null", f"Expected 'null' but got {toks[idx]}"
+                        val1 = "NULL"
+                        idx += 1
                     else:
-                        val_list = []
-                        while idx < len_ and toks[idx] != ")":
-                            idx, val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-                            val_list.append(val)
-                            if toks[idx] == ",":
-                                idx += 1
-                        assert toks[idx] == ")"
-                        idx += 1
-                        val1 = val_list
-                elif op_id == WHERE_OPS.index("like"):
-                    idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-                elif op_id == WHERE_OPS.index("is"):
-                    if idx < len_ and toks[idx] == "not":
-                        not_op = True
-                        idx += 1
-                    assert idx < len_ and toks[idx] == "null", f"Expected 'null' but got {toks[idx]}"
-                    val1 = "NULL"
-                    idx += 1
-                else:
-                    idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
 
-                conds.append((not_op, op_id, val_unit, val1, val2))
+                    conds.append((not_op, op_id, val_unit, val1, val2))
 
         if idx < len_ and toks[idx] in COND_OPS:
             conds.append(toks[idx])
