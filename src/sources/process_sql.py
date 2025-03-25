@@ -204,7 +204,17 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
         return start_idx + 1, schema.idMap[tok]
     if '.' in tok:
         alias, col = tok.split('.')
-        key = tables_with_alias[alias] + "." + col
+        table_or_subquery = tables_with_alias[alias]
+        col_lower = col.lower()
+        
+        # Check if the alias corresponds to a subquery
+        if table_or_subquery in schema.subquery_schemas:
+            if col_lower in schema.subquery_schemas[table_or_subquery]:
+                return start_idx + 1, f"__{table_or_subquery}.{col_lower}__"
+            raise ValueError(f"Error col: {tok} - column '{col}' not found in subquery '{table_or_subquery}'")
+        
+        # Otherwise, treat it as a base table
+        key = table_or_subquery + "." + col
         key_lower = key.lower()
         if key_lower in schema.idMap:
             return start_idx + 1, schema.idMap[key_lower]
@@ -706,35 +716,7 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
         idx += 1  # Skip '('
         subquery_start = idx
         if toks[idx] == 'select':
-            # Initialize with fallback
-            sub_default_tables = list(schema.schema.keys())
-            # Find the table used in the subquery
-            sub_from_idx = subquery_start
-            paren_count = 0
-            while sub_from_idx < len_:
-                if toks[sub_from_idx] == '(':
-                    paren_count += 1
-                elif toks[sub_from_idx] == ')':
-                    paren_count -= 1
-                    if paren_count == 0:
-                        break
-                elif toks[sub_from_idx] == 'from' and paren_count == 1:
-                    sub_from_idx += 1
-                    if sub_from_idx < len_ and toks[sub_from_idx] == '(':
-                        nested_from_idx = sub_from_idx + 1
-                        while nested_from_idx < len_ and toks[nested_from_idx] != 'from':
-                            nested_from_idx += 1
-                        if nested_from_idx < len_ and toks[nested_from_idx] == 'from':
-                            nested_from_idx += 1
-                            sub_table = toks[nested_from_idx]
-                            sub_default_tables = [sub_table]
-                        break
-                    else:
-                        sub_table = toks[sub_from_idx]
-                        sub_default_tables = [sub_table]
-                        break
-                sub_from_idx += 1
-
+            # Parse the subquery
             idx, sql = parse_sql(toks, subquery_start, tables_with_alias, schema)
             assert idx < len_ and toks[idx] == ')', f"Expected ')' after subquery, got {toks[idx]}"
             subquery_end = idx
@@ -754,23 +736,25 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
             default_tables.append(alias)
             table_units.append((TABLE_TYPE['sql'], sql))
 
-            # Use the subquery alias as the default table for its SELECT clause
+            # Correctly determine subquery output columns using aliases from SELECT
             sub_default_tables = [alias]
             sub_idx, sub_select, subquery_aliases = parse_select(toks, subquery_start, tables_with_alias, schema, default_tables=sub_default_tables)
             subquery_cols = []
-            is_distinct, val_units = sql['select']
+            is_distinct, val_units = sub_select
             for i, (agg_id, val_unit) in enumerate(val_units):
+                # Check if this val_unit has an alias in subquery_aliases
                 alias_name = next((name for name, val in subquery_aliases.items() if val == (agg_id, val_unit)), None)
                 if alias_name:
                     subquery_cols.append(alias_name)
                 else:
-                    col_id = val_unit[1][1]
+                    # Fallback to column name if no alias is provided
+                    col_id = val_unit[1][1]  # col_id from val_unit
                     col_name = None
                     for k, v in schema.idMap.items():
                         if v == col_id:
                             col_name = k.split('.')[-1]
                             break
-                    if not col_name and agg_id == AGG_OPS.index('none'):
+                    if not col_name:
                         col_name = f'col{i}'
                     subquery_cols.append(col_name)
             schema.add_subquery_schema(alias, subquery_cols)
@@ -778,6 +762,7 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
         else:
             raise ValueError(f"Expected 'SELECT' after '(' in FROM clause, got {toks[idx]}")
     else:
+        # Parse regular table
         idx, table_unit, table_name = parse_table_unit(toks, idx, tables_with_alias, schema)
         table_units.append((TABLE_TYPE['table_unit'], table_unit))
         if (idx < len_ and toks[idx] not in CLAUSE_KEYWORDS and toks[idx] not in JOIN_KEYWORDS and 
@@ -789,39 +774,14 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
         else:
             default_tables.append(table_name)
 
+        # Handle JOIN clauses
         while idx < len_ and toks[idx] == 'join':
             idx += 1
             if idx < len_ and toks[idx] == '(':
                 idx += 1
                 subquery_start = idx
                 if toks[idx] == 'select':
-                    sub_default_tables = list(schema.schema.keys())
-                    sub_from_idx = subquery_start
-                    paren_count = 0
-                    while sub_from_idx < len_:
-                        if toks[sub_from_idx] == '(':
-                            paren_count += 1
-                        elif toks[sub_from_idx] == ')':
-                            paren_count -= 1
-                            if paren_count == 0:
-                                break
-                        elif toks[sub_from_idx] == 'from' and paren_count == 1:
-                            sub_from_idx += 1
-                            if sub_from_idx < len_ and toks[sub_from_idx] == '(':
-                                nested_from_idx = sub_from_idx + 1
-                                while nested_from_idx < len_ and toks[nested_from_idx] != 'from':
-                                    nested_from_idx += 1
-                                if nested_from_idx < len_ and toks[nested_from_idx] == 'from':
-                                    nested_from_idx += 1
-                                    sub_table = toks[nested_from_idx]
-                                    sub_default_tables = [sub_table]
-                                break
-                            else:
-                                sub_table = toks[sub_from_idx]
-                                sub_default_tables = [sub_table]
-                                break
-                        sub_from_idx += 1
-
+                    # Parse subquery in JOIN
                     idx, sql = parse_sql(toks, subquery_start, tables_with_alias, schema)
                     assert idx < len_ and toks[idx] == ')', f"Expected ')' after subquery, got {toks[idx]}"
                     subquery_end = idx
@@ -841,10 +801,11 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
                     default_tables.append(alias)
                     table_units.append((TABLE_TYPE['sql'], sql))
 
+                    # Determine subquery output columns
                     sub_default_tables = [alias]
                     sub_idx, sub_select, subquery_aliases = parse_select(toks, subquery_start, tables_with_alias, schema, default_tables=sub_default_tables)
                     subquery_cols = []
-                    is_distinct, val_units = sql['select']
+                    is_distinct, val_units = sub_select
                     for i, (agg_id, val_unit) in enumerate(val_units):
                         alias_name = next((name for name, val in subquery_aliases.items() if val == (agg_id, val_unit)), None)
                         if alias_name:
@@ -856,7 +817,7 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
                                 if v == col_id:
                                     col_name = k.split('.')[-1]
                                     break
-                            if not col_name and agg_id == AGG_OPS.index('none'):
+                            if not col_name:
                                 col_name = f'col{i}'
                             subquery_cols.append(col_name)
                     schema.add_subquery_schema(alias, subquery_cols)
@@ -864,6 +825,7 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
                 else:
                     raise ValueError(f"Expected 'SELECT' after '(' in JOIN clause, got {toks[idx]}")
             else:
+                # Parse regular table in JOIN
                 idx, table_unit, table_name = parse_table_unit(toks, idx, tables_with_alias, schema)
                 table_units.append((TABLE_TYPE['table_unit'], table_unit))
                 if (idx < len_ and toks[idx] not in CLAUSE_KEYWORDS and toks[idx] not in JOIN_KEYWORDS and 
@@ -875,32 +837,33 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
                 else:
                     default_tables.append(table_name)
 
-                if idx < len_ and toks[idx] == "on":
-                    idx += 1
-                    idx, this_conds = parse_condition(toks, idx, tables_with_alias, schema, default_tables)
-                    if len(conds) > 0:
-                        conds.append('and')
-                    conds.extend(this_conds)
-                elif idx < len_ and toks[idx] == "using":
-                    idx += 1
-                    assert toks[idx] == '(', f"Expected '(' after USING, got {toks[idx]}"
-                    idx += 1
-                    col_name = toks[idx].lower()
-                    idx += 1
-                    assert toks[idx] == ')', f"Expected ')' after USING column, got {toks[idx]}"
-                    idx += 1
+            # Parse ON or USING clause
+            if idx < len_ and toks[idx] == "on":
+                idx += 1
+                idx, this_conds = parse_condition(toks, idx, tables_with_alias, schema, default_tables)
+                if len(conds) > 0:
+                    conds.append('and')
+                conds.extend(this_conds)
+            elif idx < len_ and toks[idx] == "using":
+                idx += 1
+                assert toks[idx] == '(', f"Expected '(' after USING, got {toks[idx]}"
+                idx += 1
+                col_name = toks[idx].lower()
+                idx += 1
+                assert toks[idx] == ')', f"Expected ')' after USING column, got {toks[idx]}"
+                idx += 1
 
-                    table1 = table_units[-2][1]
-                    table2 = table_units[-1][1]
-                    table1_name = table1.split('__')[1]
-                    table2_name = table2.split('__')[1]
-                    col_id1 = schema.idMap[f"{table1_name}.{col_name}"]
-                    col_id2 = schema.idMap[f"{table2_name}.{col_name}"]
-                    val_unit = (UNIT_OPS.index('none'), (AGG_OPS.index('none'), col_id1, False), None)
-                    cond_unit = (False, WHERE_OPS.index('='), val_unit, (AGG_OPS.index('none'), col_id2, False), None)
-                    if len(conds) > 0:
-                        conds.append('and')
-                    conds.append(cond_unit)
+                table1 = table_units[-2][1]
+                table2 = table_units[-1][1]
+                table1_name = table1.split('__')[1]
+                table2_name = table2.split('__')[1]
+                col_id1 = schema.idMap[f"{table1_name}.{col_name}"]
+                col_id2 = schema.idMap[f"{table2_name}.{col_name}"]
+                val_unit = (UNIT_OPS.index('none'), (AGG_OPS.index('none'), col_id1, False), None)
+                cond_unit = (False, WHERE_OPS.index('='), val_unit, (AGG_OPS.index('none'), col_id2, False), None)
+                if len(conds) > 0:
+                    conds.append('and')
+                conds.append(cond_unit)
 
     if idx < len_ and (toks[idx] in CLAUSE_KEYWORDS or toks[idx] in (")", ";")):
         return idx, table_units, conds, default_tables
@@ -923,20 +886,20 @@ def parse_where(toks, start_idx, tables_with_alias, schema, default_tables):
 def parse_group_by(toks, start_idx, tables_with_alias, schema, default_tables):
     idx = start_idx
     len_ = len(toks)
-    col_units = []
+    val_units = []  # Change to store val_units instead of col_units
     if idx >= len_ or toks[idx] != 'group':
-        return idx, col_units
+        return idx, val_units
     idx += 1
-    assert toks[idx] == 'by'
+    assert toks[idx] == 'by', f"Expected 'by' after 'group'"
     idx += 1
     while idx < len_ and not (toks[idx] in CLAUSE_KEYWORDS or toks[idx] in (")", ";")):
-        idx, col_unit = parse_col_unit(toks, idx, tables_with_alias, schema, default_tables)
-        col_units.append(col_unit)
+        idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+        val_units.append(val_unit)
         if idx < len_ and toks[idx] == ',':
             idx += 1
         else:
             break
-    return idx, col_units
+    return idx, val_units
 
 def parse_order_by(toks, start_idx, tables_with_alias, schema, default_tables, select_aliases):
     idx = start_idx
@@ -1126,10 +1089,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "student_transcripts_tracking"
+    db = "museum_visit"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT A.address_id, A.line_1, A.line_2 FROM Addresses A JOIN (   SELECT address_id, COUNT(*) AS student_count   FROM (     SELECT current_address_id AS address_id FROM Students     UNION ALL     SELECT permanent_address_id FROM Students   )   GROUP BY address_id ) S ON A.address_id = S.address_id ORDER BY student_count DESC LIMIT 1;"""
+    p_str = """SELECT v.ID, v.Name, v.Level_of_membership FROM visitor v JOIN (   SELECT visitor_ID, SUM(Total_spent) AS TotalSpent   FROM visit   GROUP BY visitor_ID ) ts ON v.ID = ts.visitor_ID WHERE ts.TotalSpent = (   SELECT MAX(TotalSpent)   FROM (     SELECT SUM(Total_spent) AS TotalSpent     FROM visit     GROUP BY visitor_ID   ) );"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
