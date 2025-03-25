@@ -706,6 +706,17 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
         idx += 1  # Skip '('
         subquery_start = idx
         if toks[idx] == 'select':
+            # Find the table used in the subquery before parsing it fully
+            sub_from_idx = subquery_start
+            while sub_from_idx < len_ and toks[sub_from_idx] != 'from':
+                sub_from_idx += 1
+            if sub_from_idx < len_ and toks[sub_from_idx] == 'from':
+                sub_from_idx += 1
+                sub_table = toks[sub_from_idx]  # e.g., 'car_makers'
+                sub_default_tables = [sub_table]
+            else:
+                sub_default_tables = list(schema.schema.keys())  # Fallback
+
             idx, sql = parse_sql(toks, idx, tables_with_alias, schema)
             assert idx < len_ and toks[idx] == ')', f"Expected ')' after subquery, got {toks[idx]}"
             subquery_end = idx
@@ -726,11 +737,10 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
             table_units.append((TABLE_TYPE['sql'], sql))
 
             # Extract output column aliases from subquery's SELECT clause
-            sub_idx, sub_select, subquery_aliases = parse_select(toks, subquery_start, tables_with_alias, schema, default_tables=['flights'])
+            sub_idx, sub_select, subquery_aliases = parse_select(toks, subquery_start, tables_with_alias, schema, default_tables=sub_default_tables)
             subquery_cols = []
             is_distinct, val_units = sql['select']
             for i, (agg_id, val_unit) in enumerate(val_units):
-                # Check if this val_unit has an alias in select_aliases
                 alias_name = next((name for name, val in subquery_aliases.items() if val == (agg_id, val_unit)), None)
                 if alias_name:
                     subquery_cols.append(alias_name)
@@ -766,6 +776,16 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
                 idx += 1
                 subquery_start = idx
                 if toks[idx] == 'select':
+                    sub_from_idx = subquery_start
+                    while sub_from_idx < len_ and toks[sub_from_idx] != 'from':
+                        sub_from_idx += 1
+                    if sub_from_idx < len_ and toks[sub_from_idx] == 'from':
+                        sub_from_idx += 1
+                        sub_table = toks[sub_from_idx]
+                        sub_default_tables = [sub_table]
+                    else:
+                        sub_default_tables = list(schema.schema.keys())
+
                     idx, sql = parse_sql(toks, idx, tables_with_alias, schema)
                     assert idx < len_ and toks[idx] == ')', f"Expected ')' after subquery, got {toks[idx]}"
                     subquery_end = idx
@@ -785,7 +805,7 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
                     default_tables.append(alias)
                     table_units.append((TABLE_TYPE['sql'], sql))
 
-                    sub_idx, sub_select, subquery_aliases = parse_select(toks, subquery_start, tables_with_alias, schema, default_tables=['flights'])
+                    sub_idx, sub_select, subquery_aliases = parse_select(toks, subquery_start, tables_with_alias, schema, default_tables=sub_default_tables)
                     subquery_cols = []
                     is_distinct, val_units = sql['select']
                     for i, (agg_id, val_unit) in enumerate(val_units):
@@ -1069,10 +1089,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "flight_2"
+    db = "car_1"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT airport_code FROM (   SELECT SourceAirport AS airport_code FROM flights   UNION ALL   SELECT DestAirport AS airport_code FROM flights ) GROUP BY airport_code ORDER BY COUNT(*) DESC LIMIT 1;"""
+    p_str = """SELECT COUNT(*) FROM (SELECT Country FROM car_makers GROUP BY Country HAVING COUNT(*) > 2)"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
