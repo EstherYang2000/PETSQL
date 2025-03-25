@@ -725,23 +725,27 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
             default_tables.append(alias)
             table_units.append((TABLE_TYPE['sql'], sql))
 
-            sub_toks = toks[subquery_start:subquery_end]
-            sub_alias = scan_alias(sub_toks)
-            is_distinct, val_units = sql['select']
+            # Extract output column aliases from subquery's SELECT clause
+            sub_idx, sub_select, subquery_aliases = parse_select(toks, subquery_start, tables_with_alias, schema, default_tables=['flights'])
             subquery_cols = []
-            for agg_id, val_unit in val_units:
-                col_id = val_unit[1][1]
-                col_name = None
-                for k, v in schema.idMap.items():
-                    if v == col_id:
-                        col_name = k.split('.')[-1]
-                        break
-                if not col_name and agg_id == AGG_OPS.index('none'):
-                    col_name = 'col'
-                subquery_cols.append(col_name)
-            if sub_alias:
-                subquery_cols = list(sub_alias.keys())
+            is_distinct, val_units = sql['select']
+            for i, (agg_id, val_unit) in enumerate(val_units):
+                # Check if this val_unit has an alias in select_aliases
+                alias_name = next((name for name, val in subquery_aliases.items() if val == (agg_id, val_unit)), None)
+                if alias_name:
+                    subquery_cols.append(alias_name)
+                else:
+                    col_id = val_unit[1][1]
+                    col_name = None
+                    for k, v in schema.idMap.items():
+                        if v == col_id:
+                            col_name = k.split('.')[-1]
+                            break
+                    if not col_name and agg_id == AGG_OPS.index('none'):
+                        col_name = f'col{i}'
+                    subquery_cols.append(col_name)
             schema.add_subquery_schema(alias, subquery_cols)
+            print(f"Subquery schema for {alias}: {subquery_cols}")
         else:
             raise ValueError(f"Expected 'SELECT' after '(' in FROM clause, got {toks[idx]}")
     else:
@@ -781,23 +785,25 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
                     default_tables.append(alias)
                     table_units.append((TABLE_TYPE['sql'], sql))
 
-                    sub_toks = toks[subquery_start:subquery_end]
-                    sub_alias = scan_alias(sub_toks)
-                    is_distinct, val_units = sql['select']
+                    sub_idx, sub_select, subquery_aliases = parse_select(toks, subquery_start, tables_with_alias, schema, default_tables=['flights'])
                     subquery_cols = []
-                    for agg_id, val_unit in val_units:
-                        col_id = val_unit[1][1]
-                        col_name = None
-                        for k, v in schema.idMap.items():
-                            if v == col_id:
-                                col_name = k.split('.')[-1]
-                                break
-                        if not col_name and agg_id == AGG_OPS.index('none'):
-                            col_name = 'col'
-                        subquery_cols.append(col_name)
-                    if sub_alias:
-                        subquery_cols = list(sub_alias.keys())
+                    is_distinct, val_units = sql['select']
+                    for i, (agg_id, val_unit) in enumerate(val_units):
+                        alias_name = next((name for name, val in subquery_aliases.items() if val == (agg_id, val_unit)), None)
+                        if alias_name:
+                            subquery_cols.append(alias_name)
+                        else:
+                            col_id = val_unit[1][1]
+                            col_name = None
+                            for k, v in schema.idMap.items():
+                                if v == col_id:
+                                    col_name = k.split('.')[-1]
+                                    break
+                            if not col_name and agg_id == AGG_OPS.index('none'):
+                                col_name = f'col{i}'
+                            subquery_cols.append(col_name)
                     schema.add_subquery_schema(alias, subquery_cols)
+                    print(f"Subquery schema for {alias}: {subquery_cols}")
                 else:
                     raise ValueError(f"Expected 'SELECT' after '(' in JOIN clause, got {toks[idx]}")
             else:
@@ -1063,10 +1069,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "network_1"
+    db = "flight_2"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT H.name, COUNT(*) AS likes FROM Likes AS L JOIN Highschooler AS H ON L.liked_id = H.ID GROUP BY H.ID;"""
+    p_str = """SELECT airport_code FROM (   SELECT SourceAirport AS airport_code FROM flights   UNION ALL   SELECT DestAirport AS airport_code FROM flights ) GROUP BY airport_code ORDER BY COUNT(*) DESC LIMIT 1;"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
