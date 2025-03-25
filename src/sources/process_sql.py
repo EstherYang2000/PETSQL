@@ -47,6 +47,7 @@ class Schema:
     def __init__(self, schema):
         self._schema = schema
         self._idMap = self._map(self._schema)
+        self._subquery_schemas = {}  # New: Map subquery aliases to their output columns
 
     @property
     def schema(self):
@@ -55,6 +56,10 @@ class Schema:
     @property
     def idMap(self):
         return self._idMap
+
+    @property
+    def subquery_schemas(self):
+        return self._subquery_schemas
 
     def _map(self, schema):
         idMap = {'*': "__all__"}
@@ -68,6 +73,9 @@ class Schema:
             id += 1
         return idMap
 
+    def add_subquery_schema(self, alias, columns):
+        """Add columns available from a subquery under its alias."""
+        self._subquery_schemas[alias] = [col.lower() for col in columns]
 def get_schema(db):
     schema = {}
     conn = sqlite3.connect(db)
@@ -176,7 +184,6 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
     tok = toks[start_idx]
     print(f"Parsing column: '{tok}' at {start_idx}, default_tables: {default_tables}")
 
-    # Check if token is an operator, not a column
     if tok.lower() in WHERE_OPS or tok.lower() in CLAUSE_KEYWORDS or tok.lower() in JOIN_KEYWORDS or tok.lower() in COND_OPS:
         raise ValueError(f"Error col: {tok} - token is an operator, not a column")
 
@@ -186,7 +193,6 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
         alias, col = tok.split('.')
         key = tables_with_alias[alias] + "." + col
         key_lower = key.lower()
-        print(f"Checking explicit column: {key_lower} in idMap: {key_lower in schema.idMap}")
         if key_lower in schema.idMap:
             return start_idx + 1, schema.idMap[key_lower]
         raise ValueError(f"Error col: {tok} - not found in schema")
@@ -194,34 +200,39 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
     assert default_tables is not None and len(default_tables) > 0, "Default tables required"
     tok_lower = tok.lower()
     possible_keys = []
-    
-    # First try default_tables
+
+    # Check default tables (including subqueries)
     for alias in default_tables:
         table = tables_with_alias[alias]
-        cols = schema.schema.get(table, [])
-        print(f"Checking table: {table}, columns: {cols}")
-        for col in cols:
-            if tok_lower == col.lower():
-                key = table + "." + col
-                possible_keys.append(key)
-
-    # If no match and default_tables seems incomplete, fall back to all tables in tables_with_alias
-    if not possible_keys and len(default_tables) < len(tables_with_alias):
-        print(f"Default tables incomplete, checking all tables: {list(tables_with_alias.keys())}")
-        for alias, table in tables_with_alias.items():
-            if alias in default_tables:
-                continue  # Already checked
+        if table in schema.subquery_schemas:  # Check subquery schema first
+            cols = schema.subquery_schemas[table]
+            if tok_lower in cols:
+                # For subquery columns, use a unique identifier
+                return start_idx + 1, f"__{table}.{tok_lower}__"
+        else:  # Check base schema
             cols = schema.schema.get(table, [])
-            print(f"Checking table: {table}, columns: {cols}")
             for col in cols:
                 if tok_lower == col.lower():
                     key = table + "." + col
                     possible_keys.append(key)
 
-    print(f"Possible keys for '{tok}': {possible_keys}")
+    if not possible_keys and len(default_tables) < len(tables_with_alias):
+        for alias, table in tables_with_alias.items():
+            if alias in default_tables:
+                continue
+            if table in schema.subquery_schemas:
+                cols = schema.subquery_schemas[table]
+                if tok_lower in cols:
+                    return start_idx + 1, f"__{table}.{tok_lower}__"
+            else:
+                cols = schema.schema.get(table, [])
+                for col in cols:
+                    if tok_lower == col.lower():
+                        key = table + "." + col
+                        possible_keys.append(key)
+
     if len(possible_keys) == 1:
         key_lower = possible_keys[0].lower()
-        print(f"Looking up: {key_lower} in idMap: {key_lower in schema.idMap}")
         if key_lower in schema.idMap:
             return start_idx + 1, schema.idMap[key_lower]
         raise ValueError(f"Error col: {tok} - key {key_lower} not in idMap")
@@ -551,47 +562,66 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
     table_units = []
     conds = []
 
-    # Check if FROM is followed by a subquery
     if idx < len_ and toks[idx] == '(':
         idx += 1  # Skip '('
+        subquery_start = idx  # Mark the start of the subquery
         if toks[idx] == 'select':
+            # Parse the subquery
             idx, sql = parse_sql(toks, idx, tables_with_alias, schema)
-            table_units.append((TABLE_TYPE['sql'], sql))
             assert idx < len_ and toks[idx] == ')', f"Expected ')' after subquery, got {toks[idx]}"
-            idx += 1
+            subquery_end = idx  # Mark the end of the subquery (before ')')
+            idx += 1  # Skip ')'
+            alias = None
             if idx < len_ and toks[idx] == 'as':
                 idx += 1
                 alias = toks[idx]
-                tables_with_alias[alias] = f"subquery_{len(table_units)-1}"
-                default_tables.append(alias)
                 idx += 1
             else:
-                alias = f"subquery_{len(table_units)-1}"
-                tables_with_alias[alias] = alias
-                default_tables.append(alias)
+                alias = f"subquery_{len(table_units)}"
+            tables_with_alias[alias] = alias
+            default_tables.append(alias)
+            table_units.append((TABLE_TYPE['sql'], sql))
+
+            # Extract subquery tokens for alias scanning
+            sub_toks = toks[subquery_start:subquery_end]
+            sub_alias = scan_alias(sub_toks)
+            
+            # Extract columns from subquery's SELECT clause
+            is_distinct, val_units = sql['select']
+            subquery_cols = []
+            for agg_id, val_unit in val_units:
+                col_id = val_unit[1][1]  # Extract col_id from val_unit
+                col_name = None
+                for k, v in schema.idMap.items():
+                    if v == col_id:
+                        col_name = k.split('.')[-1]  # Get column name
+                        break
+                if not col_name and agg_id == AGG_OPS.index('none'):
+                    col_name = 'col'  # Fallback
+                subquery_cols.append(col_name)
+            # Override with aliases if defined
+            if sub_alias:
+                subquery_cols = list(sub_alias.keys())
+            schema.add_subquery_schema(alias, subquery_cols)
         else:
             raise ValueError(f"Expected 'SELECT' after '(' in FROM clause, got {toks[idx]}")
     else:
-        # Parse the first table
         idx, table_unit, table_name = parse_table_unit(toks, idx, tables_with_alias, schema)
         table_units.append((TABLE_TYPE['table_unit'], table_unit))
         default_tables.append(table_name)
 
-        # Handle subsequent JOINs
         while idx < len_ and toks[idx] == 'join':
-            idx += 1  # Skip 'join'
+            idx += 1
             idx, table_unit, table_name = parse_table_unit(toks, idx, tables_with_alias, schema)
             table_units.append((TABLE_TYPE['table_unit'], table_unit))
             default_tables.append(table_name)
 
-            # Handle ON clause
             if idx < len_ and toks[idx] == "on":
                 idx += 1
                 idx, this_conds = parse_condition(toks, idx, tables_with_alias, schema, default_tables)
                 if len(conds) > 0:
                     conds.append('and')
                 conds.extend(this_conds)
-            # Handle USING clause
             elif idx < len_ and toks[idx] == "using":
                 idx += 1
                 assert toks[idx] == '(', f"Expected '(' after USING, got {toks[idx]}"
@@ -601,11 +631,9 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
                 assert toks[idx] == ')', f"Expected ')' after USING column, got {toks[idx]}"
                 idx += 1
 
-                if len(table_units) < 2:
-                    raise ValueError("USING requires at least two tables")
-                table1 = table_units[-2][1]  # Previous table
-                table2 = table_units[-1][1]  # Current table
-                table1_name = table1.split('__')[1]  # Extract table name
+                table1 = table_units[-2][1]
+                table2 = table_units[-1][1]
+                table1_name = table1.split('__')[1]
                 table2_name = table2.split('__')[1]
                 col_id1 = schema.idMap[f"{table1_name}.{col_name}"]
                 col_id2 = schema.idMap[f"{table2_name}.{col_name}"]
