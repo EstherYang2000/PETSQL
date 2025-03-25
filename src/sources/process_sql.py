@@ -610,7 +610,8 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
             conds.append(toks[idx])
             idx += 1
 
-        if idx < len_ and (toks[idx] in CLAUSE_KEYWORDS or toks[idx] in (")", ";") or toks[idx] in JOIN_KEYWORDS):
+        # Stop if we hit a join keyword (including 'left'), clause keyword, or closing parenthesis/semicolon
+        if idx < len_ and (toks[idx] in CLAUSE_KEYWORDS or toks[idx] in (")", ";") or toks[idx] in JOIN_KEYWORDS or toks[idx] == "left"):
             break
 
     print(f"Conditions: {conds}")
