@@ -354,26 +354,56 @@ def parse_table_unit(toks, start_idx, tables_with_alias, schema):
 def parse_value(toks, start_idx, tables_with_alias, schema, default_tables=None):
     idx = start_idx
     len_ = len(toks)
-    # print(f"Parsing value at {idx}: {toks[idx:]}")
 
     isBlock = False
     if toks[idx] == '(':
         isBlock = True
         idx += 1
 
-    # Handle SQL functions like date('now')
-    time_functions = ['date', 'time', 'datetime', 'strftime', 'current_timestamp', 'current_date', 'current_time']
-    if toks[idx].lower() in time_functions and idx + 1 < len_ and toks[idx + 1] == '(':
+    # Handle CASE statements
+    if toks[idx].lower() == 'case':
+        case_expr = {'case': []}  # Structure: {'case': [(condition, value), ...], 'else': value}
+        idx += 1  # Skip 'case'
+        
+        while idx < len_ and toks[idx].lower() != 'end':
+            if toks[idx].lower() == 'when':
+                idx += 1  # Skip 'when'
+                idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+                if idx < len_ and toks[idx] in WHERE_OPS:
+                    op_id = WHERE_OPS.index(toks[idx])
+                    idx += 1
+                    idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                    condition = (op_id, val_unit, val1)
+                else:
+                    condition = val_unit
+                
+                assert idx < len_ and toks[idx].lower() == 'then', f"Expected 'THEN' after WHEN, got {toks[idx]}"
+                idx += 1  # Skip 'then'
+                idx, result_val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                case_expr['case'].append((condition, result_val))
+            
+            elif toks[idx].lower() == 'else':
+                idx += 1  # Skip 'else'
+                idx, else_val = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+                case_expr['else'] = else_val
+            else:
+                raise ValueError(f"Unexpected token in CASE: {toks[idx]}")
+        
+        assert idx < len_ and toks[idx].lower() == 'end', f"Expected 'END' to close CASE, got {toks[idx]}"
+        idx += 1  # Skip 'end'
+        val = case_expr
+
+    # Handle SQL time functions only if followed by '('
+    elif (toks[idx].lower() in ['date', 'time', 'datetime', 'strftime', 'current_timestamp', 'current_date', 'current_time']
+          and idx + 1 < len_ and toks[idx + 1] == '('):
         func_name = toks[idx].lower()
         idx += 1  # Move to '('
         idx += 1  # Skip '('
         if func_name in ['current_timestamp', 'current_date', 'current_time']:
-            # No arguments for CURRENT_* functions
             assert idx < len_ and toks[idx] == ')', f"Expected ')' after {func_name}"
             idx += 1
             val = {'func': func_name, 'args': []}
         else:
-            # Expect arguments (e.g., date('now'))
             args = []
             while idx < len_ and toks[idx] != ')':
                 idx, arg = parse_value(toks, idx, tables_with_alias, schema, default_tables)
@@ -396,13 +426,13 @@ def parse_value(toks, start_idx, tables_with_alias, schema, default_tables=None)
             val = float(toks[idx])
             idx += 1
         except ValueError:
+            # If token matches a time function but isn't followed by '(', treat it as a column
             idx, col_unit = parse_col_unit(toks, idx, tables_with_alias, schema, default_tables)
             val = col_unit
 
     if isBlock:
-        assert toks[idx] == ')', f"Expected ')' but got {toks[idx]}"
+        assert idx < len_ and toks[idx] == ')', f"Expected ')' but got {toks[idx]}"
         idx += 1
-    # print(f"Value parsed: {val}")
     return idx, val
 
 def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=None):
@@ -569,12 +599,11 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
 
     if idx < len_ and toks[idx] == '(':
         idx += 1  # Skip '('
-        subquery_start = idx  # Mark the start of the subquery
+        subquery_start = idx
         if toks[idx] == 'select':
-            # Parse the subquery
             idx, sql = parse_sql(toks, idx, tables_with_alias, schema)
             assert idx < len_ and toks[idx] == ')', f"Expected ')' after subquery, got {toks[idx]}"
-            subquery_end = idx  # Mark the end of the subquery (before ')')
+            subquery_end = idx
             idx += 1  # Skip ')'
             alias = None
             if idx < len_ and toks[idx] == 'as':
@@ -587,24 +616,20 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
             default_tables.append(alias)
             table_units.append((TABLE_TYPE['sql'], sql))
 
-            # Extract subquery tokens for alias scanning
             sub_toks = toks[subquery_start:subquery_end]
             sub_alias = scan_alias(sub_toks)
-            
-            # Extract columns from subquery's SELECT clause
             is_distinct, val_units = sql['select']
             subquery_cols = []
             for agg_id, val_unit in val_units:
-                col_id = val_unit[1][1]  # Extract col_id from val_unit
+                col_id = val_unit[1][1]
                 col_name = None
                 for k, v in schema.idMap.items():
                     if v == col_id:
-                        col_name = k.split('.')[-1]  # Get column name
+                        col_name = k.split('.')[-1]
                         break
                 if not col_name and agg_id == AGG_OPS.index('none'):
-                    col_name = 'col'  # Fallback
+                    col_name = 'col'
                 subquery_cols.append(col_name)
-            # Override with aliases if defined
             if sub_alias:
                 subquery_cols = list(sub_alias.keys())
             schema.add_subquery_schema(alias, subquery_cols)
@@ -613,13 +638,29 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
     else:
         idx, table_unit, table_name = parse_table_unit(toks, idx, tables_with_alias, schema)
         table_units.append((TABLE_TYPE['table_unit'], table_unit))
-        default_tables.append(table_name)
+        # Check for alias after table name
+        if (idx < len_ and toks[idx] not in CLAUSE_KEYWORDS and toks[idx] not in JOIN_KEYWORDS and 
+            toks[idx] != ')' and toks[idx] != ';'):
+            alias = toks[idx]
+            tables_with_alias[alias] = table_name
+            default_tables.append(alias)
+            idx += 1
+        else:
+            default_tables.append(table_name)
 
         while idx < len_ and toks[idx] == 'join':
             idx += 1
             idx, table_unit, table_name = parse_table_unit(toks, idx, tables_with_alias, schema)
             table_units.append((TABLE_TYPE['table_unit'], table_unit))
-            default_tables.append(table_name)
+            # Check for alias after table name
+            if (idx < len_ and toks[idx] not in CLAUSE_KEYWORDS and toks[idx] not in JOIN_KEYWORDS and 
+                toks[idx] != ')' and toks[idx] != ';'):
+                alias = toks[idx]
+                tables_with_alias[alias] = table_name
+                default_tables.append(alias)
+                idx += 1
+            else:
+                default_tables.append(table_name)
 
             if idx < len_ and toks[idx] == "on":
                 idx += 1
@@ -862,10 +903,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "employee_hire_evaluation"
+    db = "cre_Doc_Template_Mgt"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT District FROM shop GROUP BY District HAVING COUNT(CASE WHEN Number_products < 3000 THEN 1 END) > 0    AND COUNT(CASE WHEN Number_products > 10000 THEN 1 END) > 0;"""
+    p_str = """SELECT Template_Type_Code FROM Ref_Template_Types WHERE Template_Type_Code NOT IN (SELECT t.Template_Type_Code FROM Templates t JOIN Documents d ON t.Template_ID = d.Template_ID);"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
