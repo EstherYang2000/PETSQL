@@ -160,27 +160,36 @@ def scan_alias(toks):
     alias = {}
     i = 0
     while i < len(toks) - 1:
-        # Explicit alias with 'AS'
+        # Only consider 'AS' for table aliases after 'FROM' or 'JOIN'
         if toks[i].lower() == 'as' and i > 0 and i + 1 < len(toks):
-            alias[toks[i + 1]] = toks[i - 1]
+            # Check if the token before 'AS' is a table name (follows 'from' or 'join')
+            j = i - 1
+            while j >= 0 and toks[j] in ('(', ')'):  # Skip parentheses
+                j -= 1
+            if j > 0 and toks[j-1].lower() in ('from', 'join'):
+                print(f"Explicit alias: {toks[i+1]} -> {toks[i-1]}")
+                alias[toks[i + 1]] = toks[i - 1]
             i += 2
             continue
-        # Implicit alias after FROM or JOIN, but exclude subquery start
+        # Implicit alias after FROM or JOIN
         if i > 0 and toks[i-1].lower() in ['from', 'join']:
-            # Check if the current token is a table and next is a potential alias
             if (i + 1 < len(toks) and 
                 toks[i+1].lower() not in ['where', 'group', 'order', 'having', 'limit', 'union', 'intersect', 'except', 'and', 'or', 'join', 'on', 'as', 'using'] and
-                toks[i] != '('):  # Exclude subquery opening parenthesis
+                toks[i] != '(' and 
+                toks[i+1].isalnum()):
+                print(f"Implicit alias: {toks[i+1]} -> {toks[i]}")
                 alias[toks[i+1]] = toks[i]
                 i += 2
                 continue
         i += 1
+    print(f"scan_alias result: {alias}")
     return alias
 
 def get_tables_with_alias(schema, toks):
     tables = scan_alias(toks)
+    # Add schema tables only if not already present as keys
     for key in schema:
-        if key not in tables:
+        if key not in tables.keys():
             tables[key] = key
     return tables
 
@@ -1054,10 +1063,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/database"
-    db = "student_transcripts_tracking"
+    db = "network_1"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT DISTINCT A.*  FROM Addresses A  WHERE A.address_id IN (   SELECT current_address_id FROM Students    UNION    SELECT permanent_address_id FROM Students );"""
+    p_str = """SELECT H.name, COUNT(*) AS likes FROM Likes AS L JOIN Highschooler AS H ON L.liked_id = H.ID GROUP BY H.ID;"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
