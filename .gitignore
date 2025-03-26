@@ -145,7 +145,7 @@ cython_debug/
 # VSCode
 .vscode
 glove
-
+swark-output/
 database/
 data/
 sentence_*
@@ -161,5 +161,6 @@ output/
 raw/
 logs/
 vector_cache/
+*.db
 # *.jsonl
        

@@ -13,6 +13,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--output", default='ppl_dev_add_sl.json')
 parser.add_argument("--file", default='')  # Path to the input file containing SQL queries
+parser.add_argument("--dataset_type",  default='dev')
 args = parser.parse_args()
 
 def extract_tab_from_sql(item, sample):
@@ -35,13 +36,15 @@ def extract_tab_from_sql(item, sample):
 
 
 if __name__ == '__main__':
-    
-    input_data = json.load(open(os.path.dirname(__file__) + "/ppl_test.json", 'r'))
+    if args.dataset_type == 'dev':
+        input_data = json.load(open("./ppl_dev.json", 'r'))
+    else:
+        input_data = json.load(open("./ppl_test.json", 'r'))
     file_path = os.path.dirname(__file__)
     with open(args.file, 'r') as f:
         clm = f.readlines()
     gpt_tab = []
     for ix, it in enumerate(clm):
         extract_tab_from_sql(it, input_data[ix])
-    json.dump(input_data, open(os.path.dirname(__file__) + f"/{args.output}", 'w'), indent=4)
+    json.dump(input_data, open( f"./{args.output}", 'w'), indent=4)
     

@@ -836,18 +836,22 @@ def eval_exec_match(db, p_str, g_str, pred, gold):
             unit_op, col_unit1, col_unit2 = val_unit
             agg_id, col_id, is_distinct = col_unit1
             
-            if isinstance(col_id, dict):
-                key = (agg_id, make_hashable(col_id), is_distinct)
-            else:
-                key = (agg_id, col_id, is_distinct)
+            # Create a fully hashable key from the entire val_unit
+            key = (
+                unit_op,
+                (agg_id, make_hashable(col_id), is_distinct),
+                make_hashable(col_unit2) if col_unit2 else None
+            )
             
             rmap[key] = [r[idx] for r in res]
         return rmap
-
-    p_val_units = [unit[1] for unit in pred['select'][1]]
-    q_val_units = [unit[1] for unit in gold['select'][1]]
-    
-    return res_map(p_res, p_val_units) == res_map(q_res, q_val_units)
+    try :
+        p_val_units = [unit[1] for unit in pred['select'][1]]
+        q_val_units = [unit[1] for unit in gold['select'][1]]
+        return res_map(p_res, p_val_units) == res_map(q_res, q_val_units)
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return False
     # try:
     #     with sqlite3.connect(db) as conn:
     #         cursor = conn.cursor()

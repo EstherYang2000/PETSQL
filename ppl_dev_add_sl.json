@@ -318,8 +318,8 @@
             "concert(Stadium_ID) REFERENCES stadium(Stadium_ID)\nsinger_in_concert(Singer_ID) REFERENCES singer(Singer_ID)\nsinger_in_concert(concert_ID) REFERENCES concert(concert_ID)"
         ],
         "linked_tables_gpt": [
-            "stadium",
-            "concert"
+            "concert",
+            "stadium"
         ]
     },
     {
@@ -510,8 +510,8 @@
             "concert(Stadium_ID) REFERENCES stadium(Stadium_ID)\nsinger_in_concert(Singer_ID) REFERENCES singer(Singer_ID)\nsinger_in_concert(concert_ID) REFERENCES concert(concert_ID)"
         ],
         "linked_tables_gpt": [
-            "singer_in_concert",
-            "singer"
+            "singer",
+            "singer_in_concert"
         ]
     },
     {
@@ -525,8 +525,8 @@
             "concert(Stadium_ID) REFERENCES stadium(Stadium_ID)\nsinger_in_concert(Singer_ID) REFERENCES singer(Singer_ID)\nsinger_in_concert(concert_ID) REFERENCES concert(concert_ID)"
         ],
         "linked_tables_gpt": [
-            "singer_in_concert",
-            "singer"
+            "singer",
+            "singer_in_concert"
         ]
     },
     {
@@ -556,9 +556,9 @@
             "concert(Stadium_ID) REFERENCES stadium(Stadium_ID)\nsinger_in_concert(Singer_ID) REFERENCES singer(Singer_ID)\nsinger_in_concert(concert_ID) REFERENCES concert(concert_ID)"
         ],
         "linked_tables_gpt": [
-            "concert",
+            "singer",
             "singer_in_concert",
-            "singer"
+            "concert"
         ]
     },
     {
@@ -744,8 +744,8 @@
             "Has_Pet(StuID) REFERENCES Student(StuID)\nHas_Pet(PetID) REFERENCES Pets(PetID)"
         ],
         "linked_tables_gpt": [
-            "Student",
-            "Has_Pet"
+            "Has_Pet",
+            "Student"
         ]
     },
     {
@@ -1166,7 +1166,6 @@
             "Has_Pet(StuID) REFERENCES Student(StuID)\nHas_Pet(PetID) REFERENCES Pets(PetID)"
         ],
         "linked_tables_gpt": [
-            "Student",
             "Has_Pet"
         ]
     },
@@ -1403,9 +1402,9 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "model_list",
+            "cars_data",
             "car_names",
-            "cars_data"
+            "model_list"
         ]
     },
     {
@@ -1419,7 +1418,6 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "model_list",
             "car_names",
             "cars_data"
         ]
@@ -1435,9 +1433,8 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "cars_data",
             "car_names",
-            "model_list"
+            "cars_data"
         ]
     },
     {
@@ -1451,7 +1448,6 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "model_list",
             "car_names",
             "cars_data"
         ]
@@ -1467,10 +1463,10 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "car_makers",
-            "model_list",
+            "cars_data",
             "car_names",
-            "cars_data"
+            "model_list",
+            "car_makers"
         ]
     },
     {
@@ -1516,9 +1512,9 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "car_makers",
             "cars_data",
-            "car_names"
+            "car_names",
+            "car_makers"
         ]
     },
     {
@@ -1532,8 +1528,8 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "cars_data",
-            "car_names"
+            "car_names",
+            "cars_data"
         ]
     },
     {
@@ -1547,8 +1543,9 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
+            "cars_data",
             "car_names",
-            "cars_data"
+            "model_list"
         ]
     },
     {
@@ -1562,9 +1559,9 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "continents",
+            "car_makers",
             "countries",
-            "car_makers"
+            "continents"
         ]
     },
     {
@@ -1594,8 +1591,8 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "countries",
-            "car_makers"
+            "car_makers",
+            "countries"
         ]
     },
     {
@@ -1624,8 +1621,8 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "car_makers",
-            "model_list"
+            "model_list",
+            "car_makers"
         ]
     },
     {
@@ -1654,10 +1651,10 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "car_makers",
-            "model_list",
+            "cars_data",
             "car_names",
-            "cars_data"
+            "model_list",
+            "car_makers"
         ]
     },
     {
@@ -1671,10 +1668,10 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "car_makers",
-            "model_list",
+            "cars_data",
             "car_names",
-            "cars_data"
+            "model_list",
+            "car_makers"
         ]
     },
     {
@@ -1718,8 +1715,8 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "countries",
             "car_makers",
+            "countries",
             "model_list"
         ]
     },
@@ -1734,9 +1731,9 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "countries",
+            "model_list",
             "car_makers",
-            "model_list"
+            "countries"
         ]
     },
     {
@@ -1806,6 +1803,7 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
+            "car_makers",
             "model_list"
         ]
     },
@@ -1921,8 +1919,8 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "continents",
             "countries",
+            "continents",
             "car_makers"
         ]
     },
@@ -1938,8 +1936,8 @@
         ],
         "linked_tables_gpt": [
             "countries",
-            "car_makers",
-            "continents"
+            "continents",
+            "car_makers"
         ]
     },
     {
@@ -1968,8 +1966,8 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "cars_data",
-            "car_names"
+            "car_names",
+            "cars_data"
         ]
     },
     {
@@ -1983,9 +1981,8 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "model_list",
-            "car_names",
-            "cars_data"
+            "cars_data",
+            "car_names"
         ]
     },
     {
@@ -2000,8 +1997,7 @@
         ],
         "linked_tables_gpt": [
             "cars_data",
-            "car_names",
-            "model_list"
+            "car_names"
         ]
     },
     {
@@ -2043,9 +2039,9 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "car_makers",
-            "model_list",
-            "cars_data"
+            "cars_data",
+            "car_names",
+            "model_list"
         ]
     },
     {
@@ -2104,7 +2100,7 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "model_list"
+            "car_names"
         ]
     },
     {
@@ -2118,6 +2114,7 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
+            "model_list",
             "car_names"
         ]
     },
@@ -2203,8 +2200,8 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "car_makers",
-            "model_list"
+            "model_list",
+            "car_makers"
         ]
     },
     {
@@ -2248,10 +2245,10 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "car_makers",
-            "model_list",
             "car_names",
-            "cars_data"
+            "cars_data",
+            "model_list",
+            "car_makers"
         ]
     },
     {
@@ -2265,10 +2262,10 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "car_makers",
             "model_list",
-            "cars_data",
-            "car_names"
+            "car_makers",
+            "car_names",
+            "cars_data"
         ]
     },
     {
@@ -2338,9 +2335,8 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "car_makers",
-            "model_list",
-            "cars_data"
+            "cars_data",
+            "car_names"
         ]
     },
     {
@@ -2356,6 +2352,7 @@
         "linked_tables_gpt": [
             "car_makers",
             "model_list",
+            "car_names",
             "cars_data"
         ]
     },
@@ -2454,9 +2451,8 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "model_list",
-            "car_names",
-            "cars_data"
+            "cars_data",
+            "car_names"
         ]
     },
     {
@@ -2470,10 +2466,9 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "model_list",
-            "car_makers",
+            "cars_data",
             "car_names",
-            "cars_data"
+            "model_list"
         ]
     },
     {
@@ -2487,8 +2482,8 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "car_names",
-            "cars_data"
+            "cars_data",
+            "car_names"
         ]
     },
     {
@@ -2545,9 +2540,10 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
+            "cars_data",
+            "car_names",
             "model_list",
-            "car_makers",
-            "cars_data"
+            "car_makers"
         ]
     },
     {
@@ -2561,10 +2557,10 @@
             "countries(Continent) REFERENCES continents(ContId)\ncar_makers(Country) REFERENCES countries(CountryId)\nmodel_list(Maker) REFERENCES car_makers(Id)\ncar_names(Model) REFERENCES model_list(Model)\ncars_data(Id) REFERENCES car_names(MakeId)"
         ],
         "linked_tables_gpt": [
-            "model_list",
-            "car_makers",
+            "cars_data",
             "car_names",
-            "cars_data"
+            "model_list",
+            "car_makers"
         ]
     },
     {
@@ -2625,8 +2621,8 @@
         "linked_tables_gpt": [
             "car_makers",
             "model_list",
-            "cars_data",
-            "car_names"
+            "car_names",
+            "cars_data"
         ]
     },
     {
@@ -3245,8 +3241,8 @@
         ],
         "linked_tables_gpt": [
             "flights",
-            "airports",
-            "airlines"
+            "airlines",
+            "airports"
         ]
     },
     {
@@ -3276,8 +3272,8 @@
             "flights(DestAirport) REFERENCES airports(AirportCode)\nflights(SourceAirport) REFERENCES airports(AirportCode)"
         ],
         "linked_tables_gpt": [
-            "flights",
-            "airports"
+            "airports",
+            "flights"
         ]
     },
     {
@@ -3291,8 +3287,8 @@
             "flights(DestAirport) REFERENCES airports(AirportCode)\nflights(SourceAirport) REFERENCES airports(AirportCode)"
         ],
         "linked_tables_gpt": [
-            "airports",
-            "flights"
+            "flights",
+            "airports"
         ]
     },
     {
@@ -3321,8 +3317,8 @@
             "flights(DestAirport) REFERENCES airports(AirportCode)\nflights(SourceAirport) REFERENCES airports(AirportCode)"
         ],
         "linked_tables_gpt": [
-            "airports",
-            "flights"
+            "flights",
+            "airports"
         ]
     },
     {
@@ -3336,7 +3332,6 @@
             "flights(DestAirport) REFERENCES airports(AirportCode)\nflights(SourceAirport) REFERENCES airports(AirportCode)"
         ],
         "linked_tables_gpt": [
-            "airports",
             "flights"
         ]
     },
@@ -3379,7 +3374,6 @@
             "flights(DestAirport) REFERENCES airports(AirportCode)\nflights(SourceAirport) REFERENCES airports(AirportCode)"
         ],
         "linked_tables_gpt": [
-            "airports",
             "flights"
         ]
     },
@@ -3394,8 +3388,8 @@
             "flights(DestAirport) REFERENCES airports(AirportCode)\nflights(SourceAirport) REFERENCES airports(AirportCode)"
         ],
         "linked_tables_gpt": [
-            "airlines",
-            "flights"
+            "flights",
+            "airlines"
         ]
     },
     {
@@ -3409,7 +3403,8 @@
             "flights(DestAirport) REFERENCES airports(AirportCode)\nflights(SourceAirport) REFERENCES airports(AirportCode)"
         ],
         "linked_tables_gpt": [
-            "flights"
+            "flights",
+            "airlines"
         ]
     },
     {
@@ -3483,8 +3478,8 @@
             "flights(DestAirport) REFERENCES airports(AirportCode)\nflights(SourceAirport) REFERENCES airports(AirportCode)"
         ],
         "linked_tables_gpt": [
-            "airlines",
-            "flights"
+            "flights",
+            "airlines"
         ]
     },
     {
@@ -3498,8 +3493,8 @@
             "flights(DestAirport) REFERENCES airports(AirportCode)\nflights(SourceAirport) REFERENCES airports(AirportCode)"
         ],
         "linked_tables_gpt": [
-            "airlines",
-            "flights"
+            "flights",
+            "airlines"
         ]
     },
     {
@@ -3528,8 +3523,8 @@
             "flights(DestAirport) REFERENCES airports(AirportCode)\nflights(SourceAirport) REFERENCES airports(AirportCode)"
         ],
         "linked_tables_gpt": [
-            "airlines",
-            "flights"
+            "flights",
+            "airlines"
         ]
     },
     {
@@ -3558,6 +3553,7 @@
             "flights(DestAirport) REFERENCES airports(AirportCode)\nflights(SourceAirport) REFERENCES airports(AirportCode)"
         ],
         "linked_tables_gpt": [
+            "airlines",
             "flights"
         ]
     },
@@ -3587,8 +3583,8 @@
             "flights(DestAirport) REFERENCES airports(AirportCode)\nflights(SourceAirport) REFERENCES airports(AirportCode)"
         ],
         "linked_tables_gpt": [
-            "flights",
-            "airlines"
+            "airlines",
+            "flights"
         ]
     },
     {
@@ -3632,8 +3628,8 @@
             "flights(DestAirport) REFERENCES airports(AirportCode)\nflights(SourceAirport) REFERENCES airports(AirportCode)"
         ],
         "linked_tables_gpt": [
-            "airlines",
-            "flights"
+            "flights",
+            "airlines"
         ]
     },
     {
@@ -4090,8 +4086,8 @@
             "hiring(Employee_ID) REFERENCES employee(Employee_ID)\nhiring(Shop_ID) REFERENCES shop(Shop_ID)\nevaluation(Employee_ID) REFERENCES employee(Employee_ID)"
         ],
         "linked_tables_gpt": [
-            "employee",
-            "evaluation"
+            "evaluation",
+            "employee"
         ]
     },
     {
@@ -4105,8 +4101,8 @@
             "hiring(Employee_ID) REFERENCES employee(Employee_ID)\nhiring(Shop_ID) REFERENCES shop(Shop_ID)\nevaluation(Employee_ID) REFERENCES employee(Employee_ID)"
         ],
         "linked_tables_gpt": [
-            "employee",
-            "evaluation"
+            "evaluation",
+            "employee"
         ]
     },
     {
@@ -4538,7 +4534,8 @@
         ],
         "linked_tables_gpt": [
             "Documents",
-            "Templates"
+            "Templates",
+            "Ref_Template_Types"
         ]
     },
     {
@@ -4552,6 +4549,7 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
+            "Templates",
             "Documents"
         ]
     },
@@ -4580,7 +4578,8 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
-            "Templates"
+            "Templates",
+            "Documents"
         ]
     },
     {
@@ -4835,6 +4834,7 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
+            "Ref_Template_Types",
             "Templates"
         ]
     },
@@ -4905,6 +4905,7 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
+            "Ref_Template_Types",
             "Templates"
         ]
     },
@@ -4947,7 +4948,6 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
-            "Ref_Template_Types",
             "Templates",
             "Documents"
         ]
@@ -4963,8 +4963,8 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
-            "Documents",
-            "Templates"
+            "Templates",
+            "Documents"
         ]
     },
     {
@@ -5008,7 +5008,6 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
-            "Ref_Template_Types",
             "Templates",
             "Documents"
         ]
@@ -5024,8 +5023,8 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
-            "Templates",
-            "Documents"
+            "Documents",
+            "Templates"
         ]
     },
     {
@@ -5039,8 +5038,8 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
-            "Templates",
-            "Documents"
+            "Documents",
+            "Templates"
         ]
     },
     {
@@ -5054,8 +5053,8 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
-            "Templates",
-            "Documents"
+            "Documents",
+            "Templates"
         ]
     },
     {
@@ -5185,9 +5184,9 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
-            "Ref_Template_Types",
+            "Documents",
             "Templates",
-            "Documents"
+            "Ref_Template_Types"
         ]
     },
     {
@@ -5201,7 +5200,6 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
-            "Ref_Template_Types",
             "Templates",
             "Documents"
         ]
@@ -5290,8 +5288,8 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
-            "Documents",
-            "Paragraphs"
+            "Paragraphs",
+            "Documents"
         ]
     },
     {
@@ -5363,9 +5361,8 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
-            "Documents",
-            "Templates",
-            "Paragraphs"
+            "Paragraphs",
+            "Documents"
         ]
     },
     {
@@ -5379,8 +5376,8 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
-            "Documents",
-            "Paragraphs"
+            "Paragraphs",
+            "Documents"
         ]
     },
     {
@@ -5394,6 +5391,7 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
+            "Documents",
             "Paragraphs"
         ]
     },
@@ -5408,6 +5406,7 @@
             "Templates(Template_Type_Code) REFERENCES Ref_Template_Types(Template_Type_Code)\nDocuments(Template_ID) REFERENCES Templates(Template_ID)\nParagraphs(Document_ID) REFERENCES Documents(Document_ID)"
         ],
         "linked_tables_gpt": [
+            "Documents",
             "Paragraphs"
         ]
     },
@@ -5846,8 +5845,8 @@
             "course_arrange(Teacher_ID) REFERENCES teacher(Teacher_ID)\ncourse_arrange(Course_ID) REFERENCES course(Course_ID)"
         ],
         "linked_tables_gpt": [
-            "course_arrange",
             "teacher",
+            "course_arrange",
             "course"
         ]
     },
@@ -5862,9 +5861,9 @@
             "course_arrange(Teacher_ID) REFERENCES teacher(Teacher_ID)\ncourse_arrange(Course_ID) REFERENCES course(Course_ID)"
         ],
         "linked_tables_gpt": [
-            "course",
+            "teacher",
             "course_arrange",
-            "teacher"
+            "course"
         ]
     },
     {
@@ -5878,9 +5877,9 @@
             "course_arrange(Teacher_ID) REFERENCES teacher(Teacher_ID)\ncourse_arrange(Course_ID) REFERENCES course(Course_ID)"
         ],
         "linked_tables_gpt": [
-            "course",
+            "teacher",
             "course_arrange",
-            "teacher"
+            "course"
         ]
     },
     {
@@ -5910,9 +5909,9 @@
             "course_arrange(Teacher_ID) REFERENCES teacher(Teacher_ID)\ncourse_arrange(Course_ID) REFERENCES course(Course_ID)"
         ],
         "linked_tables_gpt": [
-            "course",
+            "teacher",
             "course_arrange",
-            "teacher"
+            "course"
         ]
     },
     {
@@ -5926,9 +5925,9 @@
             "course_arrange(Teacher_ID) REFERENCES teacher(Teacher_ID)\ncourse_arrange(Course_ID) REFERENCES course(Course_ID)"
         ],
         "linked_tables_gpt": [
-            "course",
+            "teacher",
             "course_arrange",
-            "teacher"
+            "course"
         ]
     },
     {
@@ -5942,8 +5941,8 @@
             "course_arrange(Teacher_ID) REFERENCES teacher(Teacher_ID)\ncourse_arrange(Course_ID) REFERENCES course(Course_ID)"
         ],
         "linked_tables_gpt": [
-            "course_arrange",
-            "teacher"
+            "teacher",
+            "course_arrange"
         ]
     },
     {
@@ -5972,8 +5971,8 @@
             "course_arrange(Teacher_ID) REFERENCES teacher(Teacher_ID)\ncourse_arrange(Course_ID) REFERENCES course(Course_ID)"
         ],
         "linked_tables_gpt": [
-            "course_arrange",
-            "teacher"
+            "teacher",
+            "course_arrange"
         ]
     },
     {
@@ -5987,8 +5986,8 @@
             "course_arrange(Teacher_ID) REFERENCES teacher(Teacher_ID)\ncourse_arrange(Course_ID) REFERENCES course(Course_ID)"
         ],
         "linked_tables_gpt": [
-            "course_arrange",
-            "teacher"
+            "teacher",
+            "course_arrange"
         ]
     },
     {
@@ -6204,8 +6203,8 @@
             "visit(visitor_ID) REFERENCES visitor(ID)\nvisit(Museum_ID) REFERENCES museum(Museum_ID)"
         ],
         "linked_tables_gpt": [
-            "visit",
-            "visitor"
+            "visitor",
+            "visit"
         ]
     },
     {
@@ -6233,8 +6232,8 @@
             "visit(visitor_ID) REFERENCES visitor(ID)\nvisit(Museum_ID) REFERENCES museum(Museum_ID)"
         ],
         "linked_tables_gpt": [
-            "visitor",
-            "visit"
+            "visit",
+            "visitor"
         ]
     },
     {
@@ -6248,8 +6247,8 @@
             "visit(visitor_ID) REFERENCES visitor(ID)\nvisit(Museum_ID) REFERENCES museum(Museum_ID)"
         ],
         "linked_tables_gpt": [
-            "visit",
             "visitor",
+            "visit",
             "museum"
         ]
     },
@@ -6420,8 +6419,7 @@
             "matches(winner_id) REFERENCES players(player_id)\nmatches(loser_id) REFERENCES players(player_id)\nrankings(player_id) REFERENCES players(player_id)"
         ],
         "linked_tables_gpt": [
-            "matches",
-            "rankings"
+            "matches"
         ]
     },
     {
@@ -6776,9 +6774,9 @@
             "matches(winner_id) REFERENCES players(player_id)\nmatches(loser_id) REFERENCES players(player_id)\nrankings(player_id) REFERENCES players(player_id)"
         ],
         "linked_tables_gpt": [
+            "matches",
             "players",
-            "rankings",
-            "matches"
+            "rankings"
         ]
     },
     {
@@ -6792,9 +6790,9 @@
             "matches(winner_id) REFERENCES players(player_id)\nmatches(loser_id) REFERENCES players(player_id)\nrankings(player_id) REFERENCES players(player_id)"
         ],
         "linked_tables_gpt": [
+            "matches",
             "players",
-            "rankings",
-            "matches"
+            "rankings"
         ]
     },
     {
@@ -6839,8 +6837,7 @@
             "matches(winner_id) REFERENCES players(player_id)\nmatches(loser_id) REFERENCES players(player_id)\nrankings(player_id) REFERENCES players(player_id)"
         ],
         "linked_tables_gpt": [
-            "matches",
-            "players"
+            "matches"
         ]
     },
     {
@@ -6854,6 +6851,7 @@
             "matches(winner_id) REFERENCES players(player_id)\nmatches(loser_id) REFERENCES players(player_id)\nrankings(player_id) REFERENCES players(player_id)"
         ],
         "linked_tables_gpt": [
+            "matches",
             "players"
         ]
     },
@@ -6868,8 +6866,8 @@
             "matches(winner_id) REFERENCES players(player_id)\nmatches(loser_id) REFERENCES players(player_id)\nrankings(player_id) REFERENCES players(player_id)"
         ],
         "linked_tables_gpt": [
-            "players",
-            "rankings"
+            "rankings",
+            "players"
         ]
     },
     {
@@ -6898,8 +6896,8 @@
             "matches(winner_id) REFERENCES players(player_id)\nmatches(loser_id) REFERENCES players(player_id)\nrankings(player_id) REFERENCES players(player_id)"
         ],
         "linked_tables_gpt": [
-            "players",
-            "rankings"
+            "rankings",
+            "players"
         ]
     },
     {
@@ -7069,8 +7067,8 @@
         ],
         "linked_tables_gpt": [
             "players",
-            "rankings",
-            "matches"
+            "matches",
+            "rankings"
         ]
     },
     {
@@ -7098,8 +7096,7 @@
             "matches(winner_id) REFERENCES players(player_id)\nmatches(loser_id) REFERENCES players(player_id)\nrankings(player_id) REFERENCES players(player_id)"
         ],
         "linked_tables_gpt": [
-            "matches",
-            "players"
+            "matches"
         ]
     },
     {
@@ -7128,7 +7125,8 @@
         ],
         "linked_tables_gpt": [
             "players",
-            "rankings"
+            "rankings",
+            "matches"
         ]
     },
     {
@@ -7227,6 +7225,8 @@
             "ship(lost_in_battle) REFERENCES battle(id)\ndeath(caused_by_ship_id) REFERENCES ship(id)"
         ],
         "linked_tables_gpt": [
+            "battle",
+            "ship",
             "death"
         ]
     },
@@ -7255,8 +7255,8 @@
             "ship(lost_in_battle) REFERENCES battle(id)\ndeath(caused_by_ship_id) REFERENCES ship(id)"
         ],
         "linked_tables_gpt": [
-            "ship",
-            "death"
+            "death",
+            "ship"
         ]
     },
     {
@@ -7544,8 +7544,8 @@
             "Degree_Programs(department_id) REFERENCES Departments(department_id)\nSections(course_id) REFERENCES Courses(course_id)\nStudents(permanent_address_id) REFERENCES Addresses(address_id)\nStudents(current_address_id) REFERENCES Addresses(address_id)\nStudent_Enrolment(student_id) REFERENCES Students(student_id)\nStudent_Enrolment(semester_id) REFERENCES Semesters(semester_id)\nStudent_Enrolment(degree_program_id) REFERENCES Degree_Programs(degree_program_id)\nStudent_Enrolment_Courses(student_enrolment_id) REFERENCES Student_Enrolment(student_enrolment_id)\nStudent_Enrolment_Courses(course_id) REFERENCES Courses(course_id)\nTranscript_Contents(transcript_id) REFERENCES Transcripts(transcript_id)\nTranscript_Contents(student_course_id) REFERENCES Student_Enrolment_Courses(student_course_id)"
         ],
         "linked_tables_gpt": [
-            "Degree_Programs",
-            "Departments"
+            "Departments",
+            "Degree_Programs"
         ]
     },
     {
@@ -7731,8 +7731,8 @@
             "Degree_Programs(department_id) REFERENCES Departments(department_id)\nSections(course_id) REFERENCES Courses(course_id)\nStudents(permanent_address_id) REFERENCES Addresses(address_id)\nStudents(current_address_id) REFERENCES Addresses(address_id)\nStudent_Enrolment(student_id) REFERENCES Students(student_id)\nStudent_Enrolment(semester_id) REFERENCES Semesters(semester_id)\nStudent_Enrolment(degree_program_id) REFERENCES Degree_Programs(degree_program_id)\nStudent_Enrolment_Courses(student_enrolment_id) REFERENCES Student_Enrolment(student_enrolment_id)\nStudent_Enrolment_Courses(course_id) REFERENCES Courses(course_id)\nTranscript_Contents(transcript_id) REFERENCES Transcripts(transcript_id)\nTranscript_Contents(student_course_id) REFERENCES Student_Enrolment_Courses(student_course_id)"
         ],
         "linked_tables_gpt": [
-            "Student_Enrolment",
-            "Semesters"
+            "Semesters",
+            "Student_Enrolment"
         ]
     },
     {
@@ -7819,9 +7819,9 @@
             "Degree_Programs(department_id) REFERENCES Departments(department_id)\nSections(course_id) REFERENCES Courses(course_id)\nStudents(permanent_address_id) REFERENCES Addresses(address_id)\nStudents(current_address_id) REFERENCES Addresses(address_id)\nStudent_Enrolment(student_id) REFERENCES Students(student_id)\nStudent_Enrolment(semester_id) REFERENCES Semesters(semester_id)\nStudent_Enrolment(degree_program_id) REFERENCES Degree_Programs(degree_program_id)\nStudent_Enrolment_Courses(student_enrolment_id) REFERENCES Student_Enrolment(student_enrolment_id)\nStudent_Enrolment_Courses(course_id) REFERENCES Courses(course_id)\nTranscript_Contents(transcript_id) REFERENCES Transcripts(transcript_id)\nTranscript_Contents(student_course_id) REFERENCES Student_Enrolment_Courses(student_course_id)"
         ],
         "linked_tables_gpt": [
-            "Students",
             "Student_Enrolment",
-            "Degree_Programs"
+            "Degree_Programs",
+            "Students"
         ]
     },
     {
@@ -7835,8 +7835,8 @@
             "Degree_Programs(department_id) REFERENCES Departments(department_id)\nSections(course_id) REFERENCES Courses(course_id)\nStudents(permanent_address_id) REFERENCES Addresses(address_id)\nStudents(current_address_id) REFERENCES Addresses(address_id)\nStudent_Enrolment(student_id) REFERENCES Students(student_id)\nStudent_Enrolment(semester_id) REFERENCES Semesters(semester_id)\nStudent_Enrolment(degree_program_id) REFERENCES Degree_Programs(degree_program_id)\nStudent_Enrolment_Courses(student_enrolment_id) REFERENCES Student_Enrolment(student_enrolment_id)\nStudent_Enrolment_Courses(course_id) REFERENCES Courses(course_id)\nTranscript_Contents(transcript_id) REFERENCES Transcripts(transcript_id)\nTranscript_Contents(student_course_id) REFERENCES Student_Enrolment_Courses(student_course_id)"
         ],
         "linked_tables_gpt": [
-            "Students",
             "Student_Enrolment",
+            "Students",
             "Degree_Programs"
         ]
     },
@@ -7851,8 +7851,8 @@
             "Degree_Programs(department_id) REFERENCES Departments(department_id)\nSections(course_id) REFERENCES Courses(course_id)\nStudents(permanent_address_id) REFERENCES Addresses(address_id)\nStudents(current_address_id) REFERENCES Addresses(address_id)\nStudent_Enrolment(student_id) REFERENCES Students(student_id)\nStudent_Enrolment(semester_id) REFERENCES Semesters(semester_id)\nStudent_Enrolment(degree_program_id) REFERENCES Degree_Programs(degree_program_id)\nStudent_Enrolment_Courses(student_enrolment_id) REFERENCES Student_Enrolment(student_enrolment_id)\nStudent_Enrolment_Courses(course_id) REFERENCES Courses(course_id)\nTranscript_Contents(transcript_id) REFERENCES Transcripts(transcript_id)\nTranscript_Contents(student_course_id) REFERENCES Student_Enrolment_Courses(student_course_id)"
         ],
         "linked_tables_gpt": [
-            "Degree_Programs",
-            "Student_Enrolment"
+            "Student_Enrolment",
+            "Degree_Programs"
         ]
     },
     {
@@ -7911,8 +7911,8 @@
             "Degree_Programs(department_id) REFERENCES Departments(department_id)\nSections(course_id) REFERENCES Courses(course_id)\nStudents(permanent_address_id) REFERENCES Addresses(address_id)\nStudents(current_address_id) REFERENCES Addresses(address_id)\nStudent_Enrolment(student_id) REFERENCES Students(student_id)\nStudent_Enrolment(semester_id) REFERENCES Semesters(semester_id)\nStudent_Enrolment(degree_program_id) REFERENCES Degree_Programs(degree_program_id)\nStudent_Enrolment_Courses(student_enrolment_id) REFERENCES Student_Enrolment(student_enrolment_id)\nStudent_Enrolment_Courses(course_id) REFERENCES Courses(course_id)\nTranscript_Contents(transcript_id) REFERENCES Transcripts(transcript_id)\nTranscript_Contents(student_course_id) REFERENCES Student_Enrolment_Courses(student_course_id)"
         ],
         "linked_tables_gpt": [
-            "Students",
-            "Student_Enrolment"
+            "Student_Enrolment",
+            "Students"
         ]
     },
     {
@@ -7926,8 +7926,8 @@
             "Degree_Programs(department_id) REFERENCES Departments(department_id)\nSections(course_id) REFERENCES Courses(course_id)\nStudents(permanent_address_id) REFERENCES Addresses(address_id)\nStudents(current_address_id) REFERENCES Addresses(address_id)\nStudent_Enrolment(student_id) REFERENCES Students(student_id)\nStudent_Enrolment(semester_id) REFERENCES Semesters(semester_id)\nStudent_Enrolment(degree_program_id) REFERENCES Degree_Programs(degree_program_id)\nStudent_Enrolment_Courses(student_enrolment_id) REFERENCES Student_Enrolment(student_enrolment_id)\nStudent_Enrolment_Courses(course_id) REFERENCES Courses(course_id)\nTranscript_Contents(transcript_id) REFERENCES Transcripts(transcript_id)\nTranscript_Contents(student_course_id) REFERENCES Student_Enrolment_Courses(student_course_id)"
         ],
         "linked_tables_gpt": [
-            "Students",
-            "Student_Enrolment"
+            "Student_Enrolment",
+            "Students"
         ]
     },
     {
@@ -8220,8 +8220,8 @@
             "Degree_Programs(department_id) REFERENCES Departments(department_id)\nSections(course_id) REFERENCES Courses(course_id)\nStudents(permanent_address_id) REFERENCES Addresses(address_id)\nStudents(current_address_id) REFERENCES Addresses(address_id)\nStudent_Enrolment(student_id) REFERENCES Students(student_id)\nStudent_Enrolment(semester_id) REFERENCES Semesters(semester_id)\nStudent_Enrolment(degree_program_id) REFERENCES Degree_Programs(degree_program_id)\nStudent_Enrolment_Courses(student_enrolment_id) REFERENCES Student_Enrolment(student_enrolment_id)\nStudent_Enrolment_Courses(course_id) REFERENCES Courses(course_id)\nTranscript_Contents(transcript_id) REFERENCES Transcripts(transcript_id)\nTranscript_Contents(student_course_id) REFERENCES Student_Enrolment_Courses(student_course_id)"
         ],
         "linked_tables_gpt": [
-            "Students",
-            "Addresses"
+            "Addresses",
+            "Students"
         ]
     },
     {
@@ -8347,7 +8347,6 @@
             "Degree_Programs(department_id) REFERENCES Departments(department_id)\nSections(course_id) REFERENCES Courses(course_id)\nStudents(permanent_address_id) REFERENCES Addresses(address_id)\nStudents(current_address_id) REFERENCES Addresses(address_id)\nStudent_Enrolment(student_id) REFERENCES Students(student_id)\nStudent_Enrolment(semester_id) REFERENCES Semesters(semester_id)\nStudent_Enrolment(degree_program_id) REFERENCES Degree_Programs(degree_program_id)\nStudent_Enrolment_Courses(student_enrolment_id) REFERENCES Student_Enrolment(student_enrolment_id)\nStudent_Enrolment_Courses(course_id) REFERENCES Courses(course_id)\nTranscript_Contents(transcript_id) REFERENCES Transcripts(transcript_id)\nTranscript_Contents(student_course_id) REFERENCES Student_Enrolment_Courses(student_course_id)"
         ],
         "linked_tables_gpt": [
-            "Student_Enrolment_Courses",
             "Transcript_Contents"
         ]
     },
@@ -8362,7 +8361,6 @@
             "Degree_Programs(department_id) REFERENCES Departments(department_id)\nSections(course_id) REFERENCES Courses(course_id)\nStudents(permanent_address_id) REFERENCES Addresses(address_id)\nStudents(current_address_id) REFERENCES Addresses(address_id)\nStudent_Enrolment(student_id) REFERENCES Students(student_id)\nStudent_Enrolment(semester_id) REFERENCES Semesters(semester_id)\nStudent_Enrolment(degree_program_id) REFERENCES Degree_Programs(degree_program_id)\nStudent_Enrolment_Courses(student_enrolment_id) REFERENCES Student_Enrolment(student_enrolment_id)\nStudent_Enrolment_Courses(course_id) REFERENCES Courses(course_id)\nTranscript_Contents(transcript_id) REFERENCES Transcripts(transcript_id)\nTranscript_Contents(student_course_id) REFERENCES Student_Enrolment_Courses(student_course_id)"
         ],
         "linked_tables_gpt": [
-            "Courses",
             "Student_Enrolment_Courses",
             "Transcript_Contents"
         ]
@@ -8408,10 +8406,9 @@
             "Degree_Programs(department_id) REFERENCES Departments(department_id)\nSections(course_id) REFERENCES Courses(course_id)\nStudents(permanent_address_id) REFERENCES Addresses(address_id)\nStudents(current_address_id) REFERENCES Addresses(address_id)\nStudent_Enrolment(student_id) REFERENCES Students(student_id)\nStudent_Enrolment(semester_id) REFERENCES Semesters(semester_id)\nStudent_Enrolment(degree_program_id) REFERENCES Degree_Programs(degree_program_id)\nStudent_Enrolment_Courses(student_enrolment_id) REFERENCES Student_Enrolment(student_enrolment_id)\nStudent_Enrolment_Courses(course_id) REFERENCES Courses(course_id)\nTranscript_Contents(transcript_id) REFERENCES Transcripts(transcript_id)\nTranscript_Contents(student_course_id) REFERENCES Student_Enrolment_Courses(student_course_id)"
         ],
         "linked_tables_gpt": [
-            "Students",
+            "Semesters",
             "Student_Enrolment",
-            "Degree_Programs",
-            "Semesters"
+            "Degree_Programs"
         ]
     },
     {
@@ -8639,8 +8636,7 @@
             "TV_series(Channel) REFERENCES TV_Channel(id)\nCartoon(Channel) REFERENCES TV_Channel(id)"
         ],
         "linked_tables_gpt": [
-            "Cartoon",
-            "TV_series"
+            "Cartoon"
         ]
     },
     {
@@ -8654,8 +8650,7 @@
             "TV_series(Channel) REFERENCES TV_Channel(id)\nCartoon(Channel) REFERENCES TV_Channel(id)"
         ],
         "linked_tables_gpt": [
-            "Cartoon",
-            "TV_series"
+            "Cartoon"
         ]
     },
     {
@@ -9108,8 +9103,8 @@
             "TV_series(Channel) REFERENCES TV_Channel(id)\nCartoon(Channel) REFERENCES TV_Channel(id)"
         ],
         "linked_tables_gpt": [
-            "TV_Channel",
-            "TV_series"
+            "TV_series",
+            "TV_Channel"
         ]
     },
     {
@@ -9123,8 +9118,8 @@
             "TV_series(Channel) REFERENCES TV_Channel(id)\nCartoon(Channel) REFERENCES TV_Channel(id)"
         ],
         "linked_tables_gpt": [
-            "TV_Channel",
-            "TV_series"
+            "TV_series",
+            "TV_Channel"
         ]
     },
     {
@@ -9138,8 +9133,8 @@
             "TV_series(Channel) REFERENCES TV_Channel(id)\nCartoon(Channel) REFERENCES TV_Channel(id)"
         ],
         "linked_tables_gpt": [
-            "TV_Channel",
-            "TV_series"
+            "TV_series",
+            "TV_Channel"
         ]
     },
     {
@@ -9223,9 +9218,7 @@
             "TV_series(Channel) REFERENCES TV_Channel(id)\nCartoon(Channel) REFERENCES TV_Channel(id)"
         ],
         "linked_tables_gpt": [
-            "TV_Channel",
-            "TV_series",
-            "Cartoon"
+            "TV_Channel"
         ]
     },
     {
@@ -9254,8 +9247,8 @@
             "TV_series(Channel) REFERENCES TV_Channel(id)\nCartoon(Channel) REFERENCES TV_Channel(id)"
         ],
         "linked_tables_gpt": [
-            "TV_Channel",
-            "Cartoon"
+            "Cartoon",
+            "TV_Channel"
         ]
     },
     {
@@ -9371,7 +9364,7 @@
             "TV_series(Channel) REFERENCES TV_Channel(id)\nCartoon(Channel) REFERENCES TV_Channel(id)"
         ],
         "linked_tables_gpt": [
-            "TV_series"
+            "TV_Channel"
         ]
     },
     {
@@ -10119,8 +10112,8 @@
             "VOTES(contestant_number) REFERENCES CONTESTANTS(contestant_number)\nVOTES(state) REFERENCES AREA_CODE_STATE(state)"
         ],
         "linked_tables_gpt": [
-            "VOTES",
-            "CONTESTANTS"
+            "CONTESTANTS",
+            "VOTES"
         ]
     },
     {
@@ -10134,8 +10127,8 @@
             "VOTES(contestant_number) REFERENCES CONTESTANTS(contestant_number)\nVOTES(state) REFERENCES AREA_CODE_STATE(state)"
         ],
         "linked_tables_gpt": [
-            "VOTES",
-            "CONTESTANTS"
+            "CONTESTANTS",
+            "VOTES"
         ]
     },
     {
@@ -10350,8 +10343,8 @@
             "city(CountryCode) REFERENCES country(Code)\ncountrylanguage(CountryCode) REFERENCES country(Code)"
         ],
         "linked_tables_gpt": [
-            "city",
-            "country"
+            "country",
+            "city"
         ]
     },
     {
@@ -10365,8 +10358,8 @@
             "city(CountryCode) REFERENCES country(Code)\ncountrylanguage(CountryCode) REFERENCES country(Code)"
         ],
         "linked_tables_gpt": [
-            "city",
-            "country"
+            "country",
+            "city"
         ]
     },
     {
@@ -10395,8 +10388,7 @@
             "city(CountryCode) REFERENCES country(Code)\ncountrylanguage(CountryCode) REFERENCES country(Code)"
         ],
         "linked_tables_gpt": [
-            "countrylanguage",
-            "country"
+            "countrylanguage"
         ]
     },
     {
@@ -10748,8 +10740,7 @@
             "city(CountryCode) REFERENCES country(Code)\ncountrylanguage(CountryCode) REFERENCES country(Code)"
         ],
         "linked_tables_gpt": [
-            "countrylanguage",
-            "country"
+            "countrylanguage"
         ]
     },
     {
@@ -10807,7 +10798,8 @@
             "city(CountryCode) REFERENCES country(Code)\ncountrylanguage(CountryCode) REFERENCES country(Code)"
         ],
         "linked_tables_gpt": [
-            "country"
+            "country",
+            "countrylanguage"
         ]
     },
     {
@@ -10939,8 +10931,8 @@
             "city(CountryCode) REFERENCES country(Code)\ncountrylanguage(CountryCode) REFERENCES country(Code)"
         ],
         "linked_tables_gpt": [
-            "countrylanguage",
-            "country"
+            "country",
+            "countrylanguage"
         ]
     },
     {
@@ -11044,8 +11036,8 @@
             "city(CountryCode) REFERENCES country(Code)\ncountrylanguage(CountryCode) REFERENCES country(Code)"
         ],
         "linked_tables_gpt": [
-            "country",
-            "countrylanguage"
+            "countrylanguage",
+            "country"
         ]
     },
     {
@@ -11059,8 +11051,8 @@
             "city(CountryCode) REFERENCES country(Code)\ncountrylanguage(CountryCode) REFERENCES country(Code)"
         ],
         "linked_tables_gpt": [
-            "country",
-            "countrylanguage"
+            "countrylanguage",
+            "country"
         ]
     },
     {
@@ -11162,8 +11154,8 @@
             "city(CountryCode) REFERENCES country(Code)\ncountrylanguage(CountryCode) REFERENCES country(Code)"
         ],
         "linked_tables_gpt": [
-            "countrylanguage",
-            "country"
+            "country",
+            "countrylanguage"
         ]
     },
     {
@@ -11177,7 +11169,7 @@
             "city(CountryCode) REFERENCES country(Code)\ncountrylanguage(CountryCode) REFERENCES country(Code)"
         ],
         "linked_tables_gpt": [
-            "city",
+            "country",
             "countrylanguage"
         ]
     },
@@ -11207,8 +11199,8 @@
             "city(CountryCode) REFERENCES country(Code)\ncountrylanguage(CountryCode) REFERENCES country(Code)"
         ],
         "linked_tables_gpt": [
-            "country",
-            "countrylanguage"
+            "countrylanguage",
+            "country"
         ]
     },
     {
@@ -11896,6 +11888,7 @@
             "city(CountryCode) REFERENCES country(Code)\ncountrylanguage(CountryCode) REFERENCES country(Code)"
         ],
         "linked_tables_gpt": [
+            "country",
             "countrylanguage"
         ]
     },
@@ -11910,6 +11903,7 @@
             "city(CountryCode) REFERENCES country(Code)\ncountrylanguage(CountryCode) REFERENCES country(Code)"
         ],
         "linked_tables_gpt": [
+            "country",
             "countrylanguage"
         ]
     },
@@ -12278,8 +12272,8 @@
             "orchestra(Conductor_ID) REFERENCES conductor(Conductor_ID)\nperformance(Orchestra_ID) REFERENCES orchestra(Orchestra_ID)\nshow(Performance_ID) REFERENCES performance(Performance_ID)"
         ],
         "linked_tables_gpt": [
-            "orchestra",
-            "conductor"
+            "conductor",
+            "orchestra"
         ]
     },
     {
@@ -12622,7 +12616,7 @@
             "Friend(friend_id) REFERENCES Highschooler(ID)\nFriend(student_id) REFERENCES Highschooler(ID)\nLikes(student_id) REFERENCES Highschooler(ID)\nLikes(liked_id) REFERENCES Highschooler(ID)"
         ],
         "linked_tables_gpt": [
-            "highschooler"
+            "Highschooler"
         ]
     },
     {
@@ -12832,8 +12826,7 @@
             "Friend(friend_id) REFERENCES Highschooler(ID)\nFriend(student_id) REFERENCES Highschooler(ID)\nLikes(student_id) REFERENCES Highschooler(ID)\nLikes(liked_id) REFERENCES Highschooler(ID)"
         ],
         "linked_tables_gpt": [
-            "highschooler",
-            "friend"
+            "Friend"
         ]
     },
     {
@@ -12877,8 +12870,8 @@
             "Friend(friend_id) REFERENCES Highschooler(ID)\nFriend(student_id) REFERENCES Highschooler(ID)\nLikes(student_id) REFERENCES Highschooler(ID)\nLikes(liked_id) REFERENCES Highschooler(ID)"
         ],
         "linked_tables_gpt": [
-            "Highschooler",
-            "Friend"
+            "Friend",
+            "Highschooler"
         ]
     },
     {
@@ -12937,8 +12930,8 @@
             "Friend(friend_id) REFERENCES Highschooler(ID)\nFriend(student_id) REFERENCES Highschooler(ID)\nLikes(student_id) REFERENCES Highschooler(ID)\nLikes(liked_id) REFERENCES Highschooler(ID)"
         ],
         "linked_tables_gpt": [
-            "Friend",
-            "Highschooler"
+            "Highschooler",
+            "Friend"
         ]
     },
     {
@@ -12952,8 +12945,8 @@
             "Friend(friend_id) REFERENCES Highschooler(ID)\nFriend(student_id) REFERENCES Highschooler(ID)\nLikes(student_id) REFERENCES Highschooler(ID)\nLikes(liked_id) REFERENCES Highschooler(ID)"
         ],
         "linked_tables_gpt": [
-            "Friend",
-            "Highschooler"
+            "Highschooler",
+            "Friend"
         ]
     },
     {
@@ -13042,8 +13035,8 @@
             "Friend(friend_id) REFERENCES Highschooler(ID)\nFriend(student_id) REFERENCES Highschooler(ID)\nLikes(student_id) REFERENCES Highschooler(ID)\nLikes(liked_id) REFERENCES Highschooler(ID)"
         ],
         "linked_tables_gpt": [
-            "highschooler",
-            "friend"
+            "Highschooler",
+            "Friend"
         ]
     },
     {
@@ -13148,8 +13141,8 @@
             "Friend(friend_id) REFERENCES Highschooler(ID)\nFriend(student_id) REFERENCES Highschooler(ID)\nLikes(student_id) REFERENCES Highschooler(ID)\nLikes(liked_id) REFERENCES Highschooler(ID)"
         ],
         "linked_tables_gpt": [
-            "Highschooler",
-            "Likes"
+            "Likes",
+            "Highschooler"
         ]
     },
     {
@@ -13163,8 +13156,8 @@
             "Friend(friend_id) REFERENCES Highschooler(ID)\nFriend(student_id) REFERENCES Highschooler(ID)\nLikes(student_id) REFERENCES Highschooler(ID)\nLikes(liked_id) REFERENCES Highschooler(ID)"
         ],
         "linked_tables_gpt": [
-            "Highschooler",
-            "Likes"
+            "Likes",
+            "Highschooler"
         ]
     },
     {
@@ -13193,8 +13186,8 @@
             "Friend(friend_id) REFERENCES Highschooler(ID)\nFriend(student_id) REFERENCES Highschooler(ID)\nLikes(student_id) REFERENCES Highschooler(ID)\nLikes(liked_id) REFERENCES Highschooler(ID)"
         ],
         "linked_tables_gpt": [
-            "highschooler",
-            "likes"
+            "Likes",
+            "Highschooler"
         ]
     },
     {
@@ -13208,8 +13201,8 @@
             "Friend(friend_id) REFERENCES Highschooler(ID)\nFriend(student_id) REFERENCES Highschooler(ID)\nLikes(student_id) REFERENCES Highschooler(ID)\nLikes(liked_id) REFERENCES Highschooler(ID)"
         ],
         "linked_tables_gpt": [
-            "highschooler",
-            "likes"
+            "Highschooler",
+            "Likes"
         ]
     },
     {
@@ -13223,8 +13216,8 @@
             "Friend(friend_id) REFERENCES Highschooler(ID)\nFriend(student_id) REFERENCES Highschooler(ID)\nLikes(student_id) REFERENCES Highschooler(ID)\nLikes(liked_id) REFERENCES Highschooler(ID)"
         ],
         "linked_tables_gpt": [
-            "highschooler",
-            "likes"
+            "Highschooler",
+            "Likes"
         ]
     },
     {
@@ -13313,8 +13306,8 @@
             "Friend(friend_id) REFERENCES Highschooler(ID)\nFriend(student_id) REFERENCES Highschooler(ID)\nLikes(student_id) REFERENCES Highschooler(ID)\nLikes(liked_id) REFERENCES Highschooler(ID)"
         ],
         "linked_tables_gpt": [
-            "highschooler",
-            "friend"
+            "Highschooler",
+            "Friend"
         ]
     },
     {
@@ -13343,8 +13336,8 @@
             "Friend(friend_id) REFERENCES Highschooler(ID)\nFriend(student_id) REFERENCES Highschooler(ID)\nLikes(student_id) REFERENCES Highschooler(ID)\nLikes(liked_id) REFERENCES Highschooler(ID)"
         ],
         "linked_tables_gpt": [
-            "highschooler",
-            "friend"
+            "Highschooler",
+            "Friend"
         ]
     },
     {
@@ -13570,8 +13563,8 @@
             "Dogs(owner_id) REFERENCES Owners(owner_id)\nDogs(owner_id) REFERENCES Owners(owner_id)\nDogs(size_code) REFERENCES Sizes(size_code)\nDogs(breed_code) REFERENCES Breeds(breed_code)\nTreatments(dog_id) REFERENCES Dogs(dog_id)\nTreatments(professional_id) REFERENCES Professionals(professional_id)\nTreatments(treatment_type_code) REFERENCES Treatment_Types(treatment_type_code)"
         ],
         "linked_tables_gpt": [
-            "Treatments",
-            "Professionals"
+            "Professionals",
+            "Treatments"
         ]
     },
     {
@@ -13600,8 +13593,8 @@
             "Dogs(owner_id) REFERENCES Owners(owner_id)\nDogs(owner_id) REFERENCES Owners(owner_id)\nDogs(size_code) REFERENCES Sizes(size_code)\nDogs(breed_code) REFERENCES Breeds(breed_code)\nTreatments(dog_id) REFERENCES Dogs(dog_id)\nTreatments(professional_id) REFERENCES Professionals(professional_id)\nTreatments(treatment_type_code) REFERENCES Treatment_Types(treatment_type_code)"
         ],
         "linked_tables_gpt": [
-            "Dogs",
-            "Breeds"
+            "Breeds",
+            "Dogs"
         ]
     },
     {
@@ -13936,8 +13929,8 @@
             "Dogs(owner_id) REFERENCES Owners(owner_id)\nDogs(owner_id) REFERENCES Owners(owner_id)\nDogs(size_code) REFERENCES Sizes(size_code)\nDogs(breed_code) REFERENCES Breeds(breed_code)\nTreatments(dog_id) REFERENCES Dogs(dog_id)\nTreatments(professional_id) REFERENCES Professionals(professional_id)\nTreatments(treatment_type_code) REFERENCES Treatment_Types(treatment_type_code)"
         ],
         "linked_tables_gpt": [
-            "Owners",
-            "Dogs"
+            "Dogs",
+            "Owners"
         ]
     },
     {
@@ -13996,8 +13989,8 @@
             "Dogs(owner_id) REFERENCES Owners(owner_id)\nDogs(owner_id) REFERENCES Owners(owner_id)\nDogs(size_code) REFERENCES Sizes(size_code)\nDogs(breed_code) REFERENCES Breeds(breed_code)\nTreatments(dog_id) REFERENCES Dogs(dog_id)\nTreatments(professional_id) REFERENCES Professionals(professional_id)\nTreatments(treatment_type_code) REFERENCES Treatment_Types(treatment_type_code)"
         ],
         "linked_tables_gpt": [
-            "Dogs",
-            "Owners"
+            "Owners",
+            "Dogs"
         ]
     },
     {
@@ -14523,7 +14516,9 @@
             "Dogs(owner_id) REFERENCES Owners(owner_id)\nDogs(owner_id) REFERENCES Owners(owner_id)\nDogs(size_code) REFERENCES Sizes(size_code)\nDogs(breed_code) REFERENCES Breeds(breed_code)\nTreatments(dog_id) REFERENCES Dogs(dog_id)\nTreatments(professional_id) REFERENCES Professionals(professional_id)\nTreatments(treatment_type_code) REFERENCES Treatment_Types(treatment_type_code)"
         ],
         "linked_tables_gpt": [
-            "Dogs"
+            "Dogs",
+            "Breeds",
+            "Sizes"
         ]
     },
     {
@@ -14553,8 +14548,8 @@
             "Dogs(owner_id) REFERENCES Owners(owner_id)\nDogs(owner_id) REFERENCES Owners(owner_id)\nDogs(size_code) REFERENCES Sizes(size_code)\nDogs(breed_code) REFERENCES Breeds(breed_code)\nTreatments(dog_id) REFERENCES Dogs(dog_id)\nTreatments(professional_id) REFERENCES Professionals(professional_id)\nTreatments(treatment_type_code) REFERENCES Treatment_Types(treatment_type_code)"
         ],
         "linked_tables_gpt": [
-            "Professionals",
             "Treatments",
+            "Professionals",
             "Treatment_Types"
         ]
     },
@@ -14821,8 +14816,8 @@
             "song(Singer_ID) REFERENCES singer(Singer_ID)"
         ],
         "linked_tables_gpt": [
-            "singer",
-            "song"
+            "song",
+            "singer"
         ]
     },
     {
@@ -15013,8 +15008,8 @@
             "Other_Available_Features(feature_type_code) REFERENCES Ref_Feature_Types(feature_type_code)\nProperties(property_type_code) REFERENCES Ref_Property_Types(property_type_code)\nOther_Property_Features(property_id) REFERENCES Properties(property_id)\nOther_Property_Features(feature_id) REFERENCES Other_Available_Features(feature_id)"
         ],
         "linked_tables_gpt": [
-            "Ref_Feature_Types",
-            "Other_Available_Features"
+            "Other_Available_Features",
+            "Ref_Feature_Types"
         ]
     },
     {
