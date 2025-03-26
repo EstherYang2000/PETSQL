@@ -50,4 +50,5 @@ def write_txt(file_path:str,data):
     # Write to a text file
     with open(file_path, "w", encoding="utf-8") as f:
         for sql in data:
-            f.write(sql + "\n")
+            sql_str = str(sql) if sql is not None else ""
+            f.write(sql_str + "\n")

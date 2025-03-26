@@ -14,15 +14,22 @@ def apply_schema_linking(sql_output_file, output_sl_file):
 def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num_prompts, dataset_type, n_samples, refinement,round=1):
     wma = WeightedMajorityAlgorithm(epsilon=0.005)
     expert_list = [
-        # {"name": "llamaapi_3.3", "model": "llamaapi", "version": "3.3"},
-    #     {"name": "gpt-4", "model": "gptapi", "version": "gpt-4"},
-        # {"name": "gpt-4o", "model": "gptapi", "version": "gpt-4o"},
+        {"name": "llamaapi_3.3", "model": "llamaapi", "version": "3.3","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_llama_rf/final_sql_1.txt"},
+        # {"name": "gpt-4", "model": "gptapi", "version": "gpt-4"},
+        {"name": "gpt-4o", "model": "gptapi", "version": "gpt-4o","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_4o_rf/final_sql_1.txt"},
         # {"name": "o1-preview", "model": "gptapi", "version": "o1-preview"},
-        {"name": "o3-mini", "model": "gptapi", "version": "o3-mini"},
-        # {"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16"},
+        {"name": "o3-mini", "model": "gptapi", "version": "o3-mini","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_o3_mini_rf/final_sql_1.txt"},
+        # {"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16","path":"./data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_3/qwen_api_32b-instruct-fp16_cc_output.txt"},
         # {"name": "mistralapi_small_24b", "model": "mistralapi", "version": "small_24b"},
-        # {"name": "qwen_api_2_5_72b", "model": "qwen_api", "version": "2_5_72b"},
+        {"name": "qwen_api_2_5_72b", "model": "qwen_api", "version": "2_5_72b","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_dev20250317/final_sql_1_qwen_api_2_5_72b_cc.txt"},
     ]
+    
+    for expert in expert_list:
+        path = expert['path']
+        with open(path) as f:
+            raw_sql_outputs = [l.strip().split('\t') for l in f.readlines() if len(l.strip()) > 0]
+        expert['raw_sql_outputs'] = raw_sql_outputs
+    
     for expert in expert_list:
         wma.add_expert(expert["name"], init_weight=1.0)
 
@@ -30,29 +37,34 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
 
     for index, sample in enumerate(input_data):
         predictions = {}
-        if dataset_type == "dev":
-            db_path = f"./data/spider/database/{sample['db']}/{sample['db']}.sqlite"
-        else:
-            db_path = f"./data/spider/test_database/{sample['db']}/{sample['db']}.sqlite"
+        db_path = f"./data/spider/database/{sample['db']}/{sample['db']}.sqlite"
         for expert in expert_list:
-            raw_sql_output = run_sql_generation(
-                model=expert["model"],
-                prompts=[sample['prompt']],
-                path_generate=path_generate,
-                out_file=f"{expert['model']}_{expert['version']}_cc.json",
-                end_num_prompts=end_num_prompts,
-                call_mode="append",
-                model_version=expert['version'],
-                n_samples=n_samples,
-                question_index=start_num_prompts + index
-            )
-
+            raw_sql_output = [{
+                            "prompt_index":  index,
+                            "sql_candidates": expert['raw_sql_outputs'][index]
+                             
+                            }]
+            # raw_sql_output = run_sql_generation(
+            #     model=expert["model"],
+            #     prompts=[sample['prompt']],
+            #     path_generate=path_generate,
+            #     out_file=f"{expert['model']}_{expert['version']}_cc.json",
+            #     end_num_prompts=end_num_prompts,
+            #     call_mode="append",
+            #     model_version=expert['version'],
+            #     n_samples=n_samples,
+            #     question_index=start_num_prompts + index
+            # )
+            print(raw_sql_output)
             if refinement:
                 refined_candidates = run_refinement_pipeline(
                     db_path, sample['prompt'], raw_sql_output, path_generate, end_num_prompts, expert['model'], expert['version']
                 )
                 refined_candidates[0]['sql_candidates'] = list(set(refined_candidates[0]['sql_candidates']))
                 predictions[expert['name']] = refined_candidates[0]['sql_candidates']
+            else:
+                predictions[expert['name']] = expert['raw_sql_outputs'][index]
+                
 
         gold_sql = sample.get("gold_sql")
         if gold_sql:
@@ -75,7 +87,7 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
             "gold_sql": gold_sql,
             "final_sql": final_sql,
             "chosen_experts": chosen_experts,
-            "is_correct": is_correct_any,
+            # "is_correct": is_correct_any,
             "current_weights": wma.get_weights()
         })
         final_results.append({
@@ -138,5 +150,17 @@ if __name__ == "__main__":
     # first round
     run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num_prompts, dataset_type, n_samples, refinement,round=1)
 
+    """
+    python src/sources/wma/cc_gpt.py \
+    --path_generate data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_simple_sl_rf_naive \
+    --gold ./data/spider/dev_gold.sql \
+    --start_num_prompts 0 \
+    --end_num_prompts 1034 \
+    --n_samples 1 \
+    --dataset_type dev \
+    --call_mode append \
+    --rounds 1
     
+    
+    """
 

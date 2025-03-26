@@ -1,3 +1,14 @@
+import logging
+
+# Configure logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
 class WeightedMajorityAlgorithm:
     """
     實作 WMA (Weighted Majority Algorithm) 的簡易版本：
@@ -66,6 +77,11 @@ class WeightedMajorityAlgorithm:
         sql_to_weight = {}
         sql_to_experts = {}
 
+        # Check if predictions_dict is empty
+        if not predictions_dict:
+            logger.error("No SQL predictions received from any expert.")
+            return None, [], 0.0
+        
         # Accumulate weights for each SQL
         for expert_name, sql_list in predictions_dict.items():
             expert_weight = self.experts.get(expert_name, 1.0)
@@ -76,7 +92,10 @@ class WeightedMajorityAlgorithm:
                     sql_to_experts[sql_str] = []
                 sql_to_weight[sql_str] += expert_weight
                 sql_to_experts[sql_str].append(expert_name)
-
+        # If no valid SQLs were added, return a safe fallback
+        if not sql_to_weight:
+            logger.error("No valid SQLs received from experts.")
+            return None, [], 0.0
         # 選出加權分數最高的SQL
         best_sql = max(sql_to_weight, key=sql_to_weight.get)
         best_weight = sql_to_weight[best_sql]
