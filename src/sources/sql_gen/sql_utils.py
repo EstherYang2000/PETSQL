@@ -1,6 +1,6 @@
 import sqlparse
 from post_process import extract_sql
-from llms import OllamaChat, GPT, GroqChat
+from llms import OllamaChat, GPT, GroqChat,TogetherChat
 from time import sleep
 from tqdm import tqdm
 import json
@@ -60,14 +60,22 @@ def run_sql_generation(model,
     elif model == "qwen_api":
         if model_version == "32b-instruct-fp16":
             llm_instance = OllamaChat(model="qwen2.5-coder:32b-instruct-fp16")
+        elif model_version == "72b-instruct-q6_K":
+            llm_instance = OllamaChat(model="qwen2.5:72b-instruct-q6_K")
         elif model_version == "2_5_72b":
             llm_instance = OllamaChat(model="qwen2.5:72b")
+            # api_key = os.environ["GROQ_API_KEY"]
+            # llm_instance = GroqChat(api_key=api_key,model="qwen-2.5-coder-32b")
     elif model == "llamaapi":
         if model_version == "3.3":
-            llm_instance = OllamaChat(model="llama3.3:latest")
+            llm_instance = TogetherChat(model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free")
+            # llm_instance = OllamaChat(model="llama3.3:latest")
+            
+            # api_key = os.environ["GROQ_API_KEY"]
+            # llm_instance = GroqChat(api_key=api_key,model="llama3-70b-8192")
         elif model_version == "3.3_70b_specdec":
             api_key = os.environ["GROQ_API_KEY"]
-            llm_instance = GroqChat(api_key=api_key,model="llama-3.3-70b-specdec")
+            llm_instance = GroqChat(api_key=api_key,model="llama3.3:latest")
         # llm_instance = Llama2(model_name="ruslanmv/Meta-Llama-3.1-8B-Text-to-SQL", max_memory={"cpu": "4GiB", 0: "22GiB"})
     elif model == "gptapi":
         llm_instance = GPT(model=model_version)
@@ -112,28 +120,30 @@ def run_sql_generation(model,
                         batch_responses = llm_instance.generate_batch(batch)
                     else:
                         batch_responses = []
-                        for _ in range(n_samples):
-                            batch_responses.extend(llm_instance.generate_batch(batch))
+                        # for _ in range(n_samples):
+                        batch_responses.extend(llm_instance.generate_batch(batch*n_samples))
                 elif model == "gptapi":
                     if n_samples == 1:
                         batch_responses = llm_instance.generate_batch(
                             batch,
-                            temperature=0.2,
+                            temperature=0.7,
                             top_p=0.9,
                             max_new_tokens=2048,
                             repetition_penalty=1.05,
                             do_sample=True
                         )
+                        print(f"Batch responses: {batch_responses}")
+                        print(len(batch_responses))
                     else:
                         batch_responses = []
-                        for _ in range(n_samples):
-                            batch_responses.extend(llm_instance.generate_batch(
-                                batch,
-                                temperature=0.2,
-                                top_p=0.9,
-                                max_new_tokens=2048,
-                                repetition_penalty=1.05,
-                                do_sample=True
+                        # for _ in range(n_samples):
+                        batch_responses.extend(llm_instance.generate_batch(
+                            batch*n_samples,
+                            temperature=0.2,
+                            top_p=0.9,
+                            max_new_tokens=2048,
+                            repetition_penalty=1.05,
+                            do_sample=True
                             ))                        
                 results.append(batch_responses)
                 sleep(1)

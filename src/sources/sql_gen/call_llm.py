@@ -8,7 +8,6 @@ print(f"[DEBUG] 正在執行的 call_llm.py = {__file__}")
 import os
 import argparse
 from time import sleep
-import torch
 from transformers import pipeline
 from tqdm import tqdm
 import json
