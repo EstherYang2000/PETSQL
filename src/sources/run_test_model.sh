@@ -42,7 +42,7 @@ echo "data preprocess time consume: $EXECUTING_TIME s"
 
 # python src/sources/evaluation.py \
 #     --gold ./data/spider/test_gold.sql  \
-#     --pred data/process/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034/gptapi_o3-mini_output.txt \
+#     --pred data/process/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034_o3_mini/gptapi_o3-mini_output.txt \
 #     --etype all \
 #     --db ./data/spider/test_database \
 #     --table ./data/spider/test_tables.json
@@ -84,17 +84,17 @@ python src/sources/sql_gen/call_llm.py \
 
 
 python src/sources/post_process.py \
-    --file data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/gptapi_gpt-4o.json \
-    --output data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/gptapi_gpt-4o_output.json \
+    --file data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/gptapi_o3-mini.json \
+    --output data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/gptapi_o3-mini_output.json \
     --llm sensechat
 
 python src/sources/extract_sql_output.py \
-    --file data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/gptapi_gpt-4o_output.json \
-    --output data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/gptapi_gpt-4o_output.txt
+    --file data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/gptapi_o3-mini_output.json \
+    --output data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/gptapi_o3-mini_output.txt
 
 python src/sources/evaluation.py \
     --gold ./data/spider/test_gold.sql  \
-    --pred data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/final_sql_1.txt\
+    --pred data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_o3_mini_rf/final_sql_1.txt\
     --etype all \
     --db ./data/spider/test_database \
     --table ./data/spider/test_tables.json > output.txt

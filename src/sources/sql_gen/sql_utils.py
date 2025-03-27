@@ -49,6 +49,7 @@ def run_sql_generation(model,
     llm_instance = None
     if model == "codellamaapi":
         if model_version == "34b-instruct":
+
             llm_instance = OllamaChat(model="codellama:34b-instruct")
         elif model_version == "70b":
             llm_instance = OllamaChat(model="codellama:70b")
@@ -59,11 +60,13 @@ def run_sql_generation(model,
             llm_instance = OllamaChat(model="mistral-small:24b")
     elif model == "qwen_api":
         if model_version == "32b-instruct-fp16":
-            llm_instance = OllamaChat(model="qwen2.5-coder:32b-instruct-fp16")
+            llm_instance = TogetherChat(model="Qwen/Qwen2.5-Coder-32B-Instruct")
+            # llm_instance = OllamaChat(model="qwen2.5-coder:32b-instruct-fp16")
         elif model_version == "72b-instruct-q6_K":
             llm_instance = OllamaChat(model="qwen2.5:72b-instruct-q6_K")
         elif model_version == "2_5_72b":
-            llm_instance = OllamaChat(model="qwen2.5:72b")
+            llm_instance = TogetherChat(model="Qwen/Qwen2.5-72B-Instruct-Turbo")
+            # llm_instance = OllamaChat(model="qwen2.5:72b")
             # api_key = os.environ["GROQ_API_KEY"]
             # llm_instance = GroqChat(api_key=api_key,model="qwen-2.5-coder-32b")
     elif model == "llamaapi":

@@ -1,7 +1,7 @@
 import json
 import os
 from itertools import zip_longest
-from wma import WeightedMajorityAlgorithm
+from wma import WeightedMajorityAlgorithm,auto_select_epsilon
 from utils.file_utils import load_prompts, append_json,write_txt
 from evaluation import build_foreign_key_map_from_json, evaluate_cc
 from sql_gen.sql_utils import run_sql_generation, run_refinement_pipeline
@@ -11,18 +11,24 @@ import argparse
 def apply_schema_linking(sql_output_file, output_sl_file):
     os.system(f"python src/sources/schemalink.py --output {output_sl_file} --file {sql_output_file}")
 
-def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num_prompts, dataset_type, n_samples, refinement,round=1):
-    wma = WeightedMajorityAlgorithm(epsilon=0.005)
+def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num_prompts, dataset_type, n_samples, refinement,round=1,strategy="wma", auto_epsilon=False):
     expert_list = [
         # {"name": "llamaapi_3.3", "model": "llamaapi", "version": "3.3"},
     #     {"name": "gpt-4", "model": "gptapi", "version": "gpt-4"},
         # {"name": "gpt-4o", "model": "gptapi", "version": "gpt-4o"},
         # {"name": "o1-preview", "model": "gptapi", "version": "o1-preview"},
-        {"name": "o3-mini", "model": "gptapi", "version": "o3-mini"},
-        # {"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16"},
+        # {"name": "o3-mini", "model": "gptapi", "version": "o3-mini"},
+        {"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16"},
         # {"name": "mistralapi_small_24b", "model": "mistralapi", "version": "small_24b"},
         # {"name": "qwen_api_2_5_72b", "model": "qwen_api", "version": "2_5_72b"},
     ]
+    # 計算 epsilon
+    if auto_epsilon:
+        epsilon = auto_select_epsilon(len(expert_list), end_num_prompts - start_num_prompts)
+        print(f"[auto_epsilon] epsilon selected: {epsilon:.6f}")
+    else:
+        epsilon = 0.005
+    wma = WeightedMajorityAlgorithm(epsilon=0.005)
     for expert in expert_list:
         wma.add_expert(expert["name"], init_weight=1.0)
 
@@ -55,6 +61,14 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
                 predictions[expert['name']] = refined_candidates[0]['sql_candidates']
 
         gold_sql = sample.get("gold_sql")
+        
+        # STEP 1: 先根據目前權重做加權投票（預測）
+        if strategy == "rwma":
+            final_sql, chosen_experts, best_weight = wma.randomized_weighted_majority_vote(predictions)
+        else:
+            final_sql, chosen_experts, best_weight = wma.weighted_majority_vote(predictions)
+
+        # STEP 2: 計算正確與否，並更新權重
         if gold_sql:
             table = "./data/spider/tables.json" if dataset_type == "dev" else "./data/spider/test_tables.json"
             kmaps = build_foreign_key_map_from_json(table)
@@ -112,6 +126,11 @@ if __name__ == "__main__":
     parser.add_argument("--refinement", action="store_true",
                     help="whether to do refinement")
     parser.add_argument("--rounds",type=int, default=1)
+    parser.add_argument("--strategy", type=str, default="wma", choices=["wma", "rwma"],
+                    help="Voting strategy to use: wma (Weighted Majority) or rwma (Randomized WMA)")
+
+    parser.add_argument("--auto_epsilon", action="store_true",
+                        help="whether to use auto epsilon")
     args = parser.parse_args()
     
     path_generate = args.path_generate
@@ -136,7 +155,7 @@ if __name__ == "__main__":
         for p, g, q in zip_longest(all_prompts, glist[start_num_prompts:end_num_prompts], questions[start_num_prompts:end_num_prompts])
     ]
     # first round
-    run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num_prompts, dataset_type, n_samples, refinement,round=1)
+    run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num_prompts, dataset_type, n_samples, refinement,round=1,strategy=args.strategy, auto_epsilon=args.auto_epsilon)
 
     
 

@@ -1,4 +1,5 @@
 import logging
+import random
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -8,6 +9,19 @@ ch.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
 logger.addHandler(ch)
+
+import math
+
+def auto_select_epsilon(num_experts, num_rounds):
+    """
+    自動計算理論最佳的 epsilon 值，用於 Weighted Majority Algorithm。
+    
+    ε = sqrt(log(N) / T)
+    """
+    if num_experts < 1 or num_rounds <= 0:
+        raise ValueError("num_experts 必須 >= 1 且 num_rounds 必須 > 0")
+    return math.sqrt(math.log(num_experts) / num_rounds)
+
 
 class WeightedMajorityAlgorithm:
     """
@@ -41,7 +55,7 @@ class WeightedMajorityAlgorithm:
         """
         if expert_name not in self.experts:
             self.experts[expert_name] = init_weight
-
+    
 
     def update_weights(self, expert_name: str, is_correct: bool):
         """
@@ -103,6 +117,39 @@ class WeightedMajorityAlgorithm:
 
         return best_sql, chosen_experts, best_weight
 
+    
+    def randomized_weighted_majority_vote(self, predictions_dict):
+        """
+        Randomized version: draw a SQL according to expert weights.
+        """
+        if not predictions_dict:
+            logger.error("No SQL predictions received from any expert.")
+            return None, [], 0.0
+
+        # 1. Normalize weights into probabilities
+        total_weight = sum(self.experts.get(expert, 0.0) for expert in predictions_dict)
+        if total_weight == 0:
+            logger.warning("Total expert weight is zero. Falling back to uniform.")
+            probs = {expert: 1.0 / len(predictions_dict) for expert in predictions_dict}
+        else:
+            probs = {expert: self.experts.get(expert, 0.0) / total_weight for expert in predictions_dict}
+
+        # 2. Randomly select an expert by probability
+        selected_expert = random.choices(
+            population=list(probs.keys()),
+            weights=list(probs.values()),
+            k=1
+        )[0]
+
+        # 3. From that expert, randomly select one SQL (or top-1)
+        sql_list = predictions_dict[selected_expert]
+        if not sql_list:
+            logger.warning(f"Selected expert {selected_expert} has no predictions.")
+            return None, [], 0.0
+        final_sql = random.choice(sql_list)
+
+        return final_sql, [selected_expert], self.experts[selected_expert]
+    
     def get_weights(self):
         """
         Get current weights of all experts.
