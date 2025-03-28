@@ -68,6 +68,52 @@ import re, json, os
 
 from sql_metadata import Parser
 
+
+def bird_pre_process(bird_dir, with_evidence=False):
+    new_db_path = os.path.join(bird_dir, "database")
+    if not os.path.exists(new_db_path):
+        os.system(f"cp -r {os.path.join(bird_dir, 'train/train_databases/*')} {new_db_path}")
+        os.system(f"cp -r {os.path.join(bird_dir, 'dev/dev_databases/*')} {new_db_path}")
+
+    def json_preprocess(data_jsons):
+        new_datas = []
+        for data_json in data_jsons:
+            ### Append the evidence to the question
+            if with_evidence and len(data_json["evidence"]) > 0:
+                data_json['question'] = (data_json['question'] + " " + data_json["evidence"]).strip()
+            question = data_json['question']
+            tokens = []
+            for token in question.split(' '):
+                if len(token) == 0:
+                    continue
+                if token[-1] in ['?', '.', ':', ';', ','] and len(token) > 1:
+                    tokens.extend([token[:-1], token[-1:]])
+                else:
+                    tokens.append(token)
+            data_json['question_toks'] = tokens
+            data_json['query'] = data_json['SQL']
+            new_datas.append(data_json)
+        return new_datas
+    output_dev = 'dev.json'
+    output_train = 'train.json'
+    with open(os.path.join(bird_dir, 'dev/dev.json')) as f:
+        data_jsons = json.load(f)
+        wf = open(os.path.join(bird_dir, output_dev), 'w')
+        json.dump(json_preprocess(data_jsons), wf, indent=4)
+    with open(os.path.join(bird_dir, 'train/train.json')) as f:
+        data_jsons = json.load(f)
+        wf = open(os.path.join(bird_dir, output_train), 'w')
+        json.dump(json_preprocess(data_jsons), wf, indent=4)
+    os.system(f"cp {os.path.join(bird_dir, 'dev/dev.sql')} {bird_dir}")
+    os.system(f"cp {os.path.join(bird_dir, 'train/train_gold.sql')} {bird_dir}")
+    tables = []
+    with open(os.path.join(bird_dir, 'dev/dev_tables.json')) as f:
+        tables.extend(json.load(f))
+    with open(os.path.join(bird_dir, 'train/train_tables.json')) as f:
+        tables.extend(json.load(f))
+    with open(os.path.join(bird_dir, 'tables.json'), 'w') as f:
+        json.dump(tables, f, indent=4)
+        
 proj_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
 
@@ -235,53 +281,54 @@ from sql_metadata import Parser
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", type=str, default="spider",choices=["spider", "bird"])
     parser.add_argument("--data_dir", type=str, default="data/spider/")
     parser.add_argument("--type",  default="dev", type=str, help="dev or test")
     args = parser.parse_args()
-
+    if args.dataset == "spider":
     # merge two training split of Spider
-    spider_dir = args.data_dir
-    # split1 = "train_spider.json"
-    # split2 = "train_others.json"
-    # total_train = []
-    # for item in json.load(open(os.path.join(spider_dir, split1))):
-    #     total_train.append(item)
-    # for item in json.load(open(os.path.join(spider_dir, split2))):
-    #     total_train.append(item)
-    # with open(os.path.join(spider_dir, 'train_spider_and_others.json'), 'w') as f:
-    #     json.dump(total_train, f)
+        spider_dir = args.data_dir
+        if args.type == "dev":
+            spider_dev = "dev.json"
+            spider_train = 'train_spider_and_others.json'
+            spider_table = 'tables.json'
+            spider_db = 'database'
+        else:
+            spider_dev = "test.json"
+            spider_train = 'test_spider_and_others.json'
+            spider_table = 'test_tables.json'
+            spider_db = 'test_database'
+        # merge two training split of Spider
+        spider_dir = args.data_dir
+        split1 = "train_spider.json"
+        split2 = "train_others.json"
+        total_train = []
+        for item in json.load(open(os.path.join(spider_dir, split1))):
+            total_train.append(item)
+        for item in json.load(open(os.path.join(spider_dir, split2))):
+            total_train.append(item)
+        with open(os.path.join(spider_dir, spider_train), 'w') as f:
+            json.dump(total_train, f)
+        schema_linking_producer(spider_dev, spider_train, spider_table, spider_db, spider_dir)
 
-    # schema-linking between questions and databases for Spider
-    # if "test.json" in os.listdir(spider_dir):
-    #     dev_name = "test.json"
-    # elif "dev.json" in os.listdir(spider_dir):
-    #     dev_name = "dev.json"
-    # else:
-    #     raise Exception("There is no 'test.json' or 'dev.json' in dataset. Please check the file path.")
-    if args.type == "dev":
-        spider_dev = "dev.json"
-        spider_train = 'train_spider_and_others.json'
-        spider_table = 'tables.json'
-        spider_db = 'database'
-    else:
-        spider_dev = "test.json"
-        spider_train = 'test_spider_and_others.json'
-        spider_table = 'test_tables.json'
-        spider_db = 'test_database'
-    # merge two training split of Spider
-    spider_dir = args.data_dir
-    split1 = "train_spider.json"
-    split2 = "train_others.json"
-    total_train = []
-    for item in json.load(open(os.path.join(spider_dir, split1))):
-        total_train.append(item)
-    for item in json.load(open(os.path.join(spider_dir, split2))):
-        total_train.append(item)
-    with open(os.path.join(spider_dir, spider_train), 'w') as f:
-        json.dump(total_train, f)
+    elif args.dataset == "bird":
+        bird_dir = args.data_dir
+        bird_pre_process(bird_dir, with_evidence=True)
+        if args.type == "dev":
+            bird_dev = "dev.json"
+            bird_train = 'train.json'
+            bird_table = 'tables.json'
+            bird_db = 'database'
+        else:
+            bird_dev = "test.json"
+            bird_train = 'test.json'
+            bird_table = 'test_tables.json'
+            bird_db = 'test_database'
+        schema_linking_producer(bird_dev, bird_train, bird_table, bird_db, bird_dir)
 
 
-    # spider_train = 'train_spider_and_others.json'
-    # spider_table = 'test_tables.json'
-    # spider_db = 'database'
-    schema_linking_producer(spider_dev, spider_train, spider_table, spider_db, spider_dir)
+"""
+
+python src/sources/data_preprocess.py --dataset bird --data_dir bird/bird/ --type dev
+
+"""

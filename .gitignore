@@ -162,5 +162,7 @@ raw/
 logs/
 vector_cache/
 *.db
+bird/
+credentials/
 # *.jsonl
        

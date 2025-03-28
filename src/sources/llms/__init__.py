@@ -7,3 +7,4 @@ from .deepseek import DeepSeek
 from .ollama_api import OllamaChat
 from .groq_chat import GroqChat
 from .togetherchat import TogetherChat
+from .segmind import ClaudeChat
