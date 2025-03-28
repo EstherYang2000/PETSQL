@@ -1,6 +1,6 @@
 import sqlparse
 from post_process import extract_sql
-from llms import OllamaChat, GPT, GroqChat,TogetherChat
+from llms import OllamaChat, GPT, GroqChat,TogetherChat,ClaudeChat
 from time import sleep
 from tqdm import tqdm
 import json
@@ -82,6 +82,9 @@ def run_sql_generation(model,
         # llm_instance = Llama2(model_name="ruslanmv/Meta-Llama-3.1-8B-Text-to-SQL", max_memory={"cpu": "4GiB", 0: "22GiB"})
     elif model == "gptapi":
         llm_instance = GPT(model=model_version)
+    elif model == "claudeaapi":
+        api_key = os.environ["SEGMIND_API_KEY"]
+        llm_instance = ClaudeChat(api_key=api_key)
     elif model == "deepseekapi":
         if model_version == "v2-16b":
             llm_instance = OllamaChat(model="deepseek-coder-v2:16b")
@@ -118,7 +121,7 @@ def run_sql_generation(model,
 
             for i in tqdm(range(0, len(prompts), batch_size), desc="Processing Batches"):
                 batch = prompts[i:i + batch_size]
-                if model in["deepseekapi" ,"codellamaapi" , "llamaapi" , "phind-codellamaapi" , "qwen_api" ,"mistralapi"]:
+                if model in["deepseekapi" ,"codellamaapi" , "llamaapi" , "phind-codellamaapi" , "qwen_api" ,"mistralapi","claudeaapi"]:
                     if n_samples == 1:
                         batch_responses = llm_instance.generate_batch(batch)
                     else:
@@ -173,7 +176,7 @@ def run_sql_generation(model,
     print(f"Processed {len(combined_result)} prompts.")
     # print(f"First result: {combined_result[0]}")
     
-    print(combined_result)
+    # print(combined_result)
     # 5) 存成JSON檔
     raw_path = os.path.join(path_generate, out_file)
     print(raw_path)
