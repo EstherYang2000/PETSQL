@@ -354,33 +354,42 @@ def parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables=No
         if toks[idx] == 'distinct':
             isDistinct = True
             idx += 1
-        # Parse the expression inside the aggregation
         idx, val = parse_expression(toks, idx, tables_with_alias, schema, default_tables)
         assert idx < len_ and toks[idx] == ')', f"Expected ')' after aggregation, got {toks[idx]}"
         idx += 1
         col_unit1 = (agg_id, val, isDistinct)
         result = (UNIT_OPS.index('none'), col_unit1, None)
     else:
-        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-        if isinstance(val1, tuple) and len(val1) == 3:
-            col_unit1 = val1
+        # Handle nested parentheses or simple values
+        if idx < len_ and toks[idx] == '(':
+            idx, sub_result = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+            result = sub_result
         else:
-            col_unit1 = (AGG_OPS.index("none"), val1, False)
-        result = (UNIT_OPS.index('none'), col_unit1, None)
+            idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+            if isinstance(val1, tuple) and len(val1) == 3:
+                col_unit1 = val1
+            else:
+                col_unit1 = (AGG_OPS.index("none"), val1, False)
+            result = (UNIT_OPS.index('none'), col_unit1, None)
 
-    # Handle arithmetic operations outside the aggregation
+    # Handle arithmetic operations outside the initial value
     while idx < len_ and toks[idx] in UNIT_OPS + ('||',):
         if toks[idx] == '||':
             unit_op = UNIT_OPS.index('+')  # Treat '||' as concatenation
         else:
             unit_op = UNIT_OPS.index(toks[idx])
         idx += 1
-        idx, val2 = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+        # Parse the right-hand side, which could be another nested expression
+        if idx < len_ and toks[idx] == '(':
+            idx, val2 = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
+        else:
+            idx, val2 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
+            val2 = (AGG_OPS.index("none"), val2, False) if not isinstance(val2, tuple) or len(val2) != 3 else val2
         col_unit2 = val2 if isinstance(val2, tuple) and len(val2) == 3 else (AGG_OPS.index("none"), val2, False)
         result = (unit_op, result, col_unit2)
 
     if isBlock:
-        assert idx < len_ and toks[idx] == ')', f"Expected closing ')' for block, got {toks[idx]}"
+        assert idx < len_ and toks[idx] == ')', f"Expected closing ')' for block at {idx}, got {toks[idx]}"
         idx += 1
 
     return idx, result
