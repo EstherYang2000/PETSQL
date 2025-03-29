@@ -123,11 +123,16 @@ def tokenize(string):
                 toks.append(current_tok.lower())
                 current_tok = ""
             i += 1
-        elif char in "=><!()*,;":
+        elif char in "=><!(),;":
             if current_tok:
+                # Check if current_tok ends with '.' and next char is '*'
+                if current_tok.endswith('.') and char == '*':
+                    toks.append(current_tok + '*')  # Combine 's.' and '*' into 's.*'
+                    current_tok = ""
+                    i += 1
+                    continue
                 toks.append(current_tok.lower())
                 current_tok = ""
-            # Check for two-character operators
             if char == '<' and i + 1 < len(string) and string[i + 1] == '>':
                 toks.append('<>')
                 i += 2
@@ -203,41 +208,48 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
     if tok.lower() in WHERE_OPS or tok.lower() in CLAUSE_KEYWORDS or tok.lower() in JOIN_KEYWORDS or tok.lower() in COND_OPS:
         raise ValueError(f"Error col: {tok} - token is an operator, not a column")
 
+    # Handle wildcard with alias (e.g., 's.*')
+    if tok.endswith('.*'):
+        alias = tok[:-2]  # Remove '.*' to get the alias
+        table_or_subquery = tables_with_alias.get(alias, alias)
+        # Check if alias is valid
+        if table_or_subquery in schema.schema or table_or_subquery in schema.subquery_schemas:
+            return start_idx + 1, f"__{table_or_subquery}.*__"  # Use a special identifier for wildcard
+        else:
+            print(f"Warning: Alias '{alias}' not found in tables or subqueries. Using placeholder.")
+            return start_idx + 1, f"__{alias}.*__"
+
     if tok == "*":
         return start_idx + 1, schema.idMap[tok]
     if '.' in tok:
         alias, col = tok.split('.')
-        table_or_subquery = tables_with_alias.get(alias, alias)  # Fallback to alias if not in tables_with_alias
+        table_or_subquery = tables_with_alias.get(alias, alias)
         col_lower = col.lower()
         
-        # Check if the alias corresponds to a subquery
         if table_or_subquery in schema.subquery_schemas:
             if col_lower in schema.subquery_schemas[table_or_subquery]:
                 return start_idx + 1, f"__{table_or_subquery}.{col_lower}__"
             print(f"Warning: Column '{col}' not found in subquery '{table_or_subquery}'. Proceeding with placeholder.")
-            return start_idx + 1, f"__{table_or_subquery}.{col_lower}__"  # Placeholder for subquery column
+            return start_idx + 1, f"__{table_or_subquery}.{col_lower}__"
         
-        # Check base schema
         key = table_or_subquery + "." + col
         key_lower = key.lower()
         if key_lower in schema.idMap:
             return start_idx + 1, schema.idMap[key_lower]
-        # If not found, warn and use a placeholder instead of raising an error
         print(f"Warning: Column '{tok}' not found in schema for table '{table_or_subquery}'. Using placeholder identifier.")
-        return start_idx + 1, f"__{table_or_subquery}.{col_lower}__"  # Placeholder identifier
+        return start_idx + 1, f"__{table_or_subquery}.{col_lower}__"
 
     assert default_tables is not None and len(default_tables) > 0, "Default tables required"
     tok_lower = tok.lower()
     possible_keys = []
 
-    # Check default tables (including subqueries)
     for alias in default_tables:
         table = tables_with_alias.get(alias, alias)
-        if table in schema.subquery_schemas:  # Check subquery schema
+        if table in schema.subquery_schemas:
             cols = schema.subquery_schemas[table]
             if tok_lower in cols:
                 return start_idx + 1, f"__{table}.{tok_lower}__"
-        else:  # Check base schema
+        else:
             cols = schema.schema.get(table, [])
             for col in cols:
                 if tok_lower == col.lower():
@@ -266,13 +278,12 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
         print(f"Warning: Key '{key_lower}' not in idMap. Using placeholder.")
         return start_idx + 1, f"__{possible_keys[0].lower()}__"
     elif len(possible_keys) > 1:
-        chosen_key = possible_keys[0]  # Default to the first match
+        chosen_key = possible_keys[0]
         print(f"Warning: Ambiguous column '{tok}' matches {possible_keys}. Defaulting to '{chosen_key}'")
         key_lower = chosen_key.lower()
         if key_lower in schema.idMap:
             return start_idx + 1, schema.idMap[key_lower]
         return start_idx + 1, f"__{key_lower}__"
-    # If column not found anywhere, use a placeholder based on first default table
     print(f"Warning: Column '{tok}' not resolved. Assigning placeholder with first default table '{default_tables[0]}'.")
     return start_idx + 1, f"__{tables_with_alias[default_tables[0]]}.{tok_lower}__"
 
@@ -689,35 +700,27 @@ def parse_select(toks, start_idx, tables_with_alias, schema, default_tables=None
     val_units = []
     aliases = {}
 
-    # Check if the SELECT clause starts with a parenthesized expression
-    if idx < len_ and toks[idx] == '(':
-        # Parse the entire expression as a single val_unit
-        idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
-        val_units.append((AGG_OPS.index('none'), val_unit))
-    else:
-        # Existing logic for multiple columns (not applicable here)
-        while idx < len_ and toks[idx] not in CLAUSE_KEYWORDS and toks[idx] != ';':
-            agg_id = AGG_OPS.index('none')
-            if toks[idx] in AGG_OPS:
-                agg_id = AGG_OPS.index(toks[idx])
-                idx += 1
+    while idx < len_ and toks[idx] not in CLAUSE_KEYWORDS and toks[idx] != ';':
+        agg_id = AGG_OPS.index('none')
+        if toks[idx] in AGG_OPS:
+            agg_id = AGG_OPS.index(toks[idx])
+            idx += 1
+        if toks[idx].endswith('.*'):  # Handle alias.* case
+            idx, col_id = parse_col(toks, idx, tables_with_alias, schema, default_tables)
+            val_unit = (UNIT_OPS.index('none'), (agg_id, col_id, False), None)
+            val_units.append((agg_id, val_unit))
+        else:
             idx, val_unit = parse_val_unit(toks, idx, tables_with_alias, schema, default_tables)
-            current_val_unit = (agg_id, val_unit)
-            val_units.append(current_val_unit)
-            if idx < len_ and toks[idx].lower() == 'as':
-                idx += 1
-                alias_name = toks[idx]
-                aliases[alias_name] = current_val_unit
-                idx += 1
-            if idx < len_ and toks[idx] == ',':
-                idx += 1
-
-    # Handle alias after the expression
-    if idx < len_ and toks[idx].lower() == 'as':
-        idx += 1
-        alias_name = toks[idx]
-        aliases[alias_name] = val_units[-1]
-        idx += 1
+            val_units.append((agg_id, val_unit))
+        if idx < len_ and toks[idx].lower() == 'as':
+            idx += 1
+            alias_name = toks[idx]
+            aliases[alias_name] = val_units[-1]
+            idx += 1
+        if idx < len_ and toks[idx] == ',':
+            idx += 1
+        else:
+            break
 
     return idx, (isDistinct, val_units), aliases
 
@@ -1105,11 +1108,11 @@ def skip_semicolon(toks, start_idx):
 
 if __name__ == "__main__":
     import os
-    db_dir = "data/spider/database"
-    db = "car_1"
+    db_dir = "data/spider/test_database"
+    db = "address_1"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT c.CountryId, c.CountryName  FROM countries c  JOIN car_makers cm ON c.CountryId = cm.Country  JOIN model_list ml ON cm.Id = ml.Maker  GROUP BY c.CountryId  HAVING COUNT(DISTINCT cm.Id) > 3     OR SUM(ml.Model = 'fiat') > 0;"""
+    p_str = """SELECT city_name FROM City ORDER BY ((latitude - 41.85)*(latitude - 41.85) + (longitude + 87.65)*(longitude + 87.65)) LIMIT 1;"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))
