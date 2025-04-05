@@ -120,7 +120,8 @@ class GPT:
                 responses.append(response)
                 time.sleep(2)
             except Exception as e:
-                responses.append(f"Error: {e}")
+                print(f"Error: {e}")
+                responses.append("")
             
         return responses
 import sqlite3

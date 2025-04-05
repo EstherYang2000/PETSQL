@@ -25,7 +25,7 @@ def format_sql(raw_sql: str, llm: str = "sensechat") -> str:
 
 def refine_sql_with_feedback(prompt: str, raw_sql: str, error_message: str, 
                              expert_name: str, path_generate: str, 
-                             end_num_prompts: int, model_version: str = None,database_type:str = "SQLite",n_samples:int = 1) -> str:
+                             start_num_prompts: int, model_version: str = None,database_type:str = "SQLite",n_samples:int = 1) -> str:
     """
     When SQL execution fails, this triggers the LLM to rewrite the SQL
     using the original prompt + failed SQL + error message as input.
@@ -60,7 +60,7 @@ def refine_sql_with_feedback(prompt: str, raw_sql: str, error_message: str,
         prompts=[refinement_prompt],
         path_generate=path_generate,
         out_file=f"{expert_name}_{model_version}_refine.json",
-        end_num_prompts=end_num_prompts,
+        start_num_prompts=start_num_prompts,
         call_mode="append",
         model_version=model_version,
         n_samples=n_samples
@@ -71,7 +71,7 @@ def refine_sql_with_feedback(prompt: str, raw_sql: str, error_message: str,
     return format_sql(refined_sql, llm="sensechat")
 
 def refine_sql_candidates(prompt: str, raw_sql_candidates: list, expert_name: str, 
-                          path_generate: str, end_num_prompts: int, model_version: str = None,
+                          path_generate: str, start_num_prompts: int, model_version: str = None,
                           db_path: str = None, max_attempts: int = 3) -> list:
     """
     Check & refine SQL candidates by actually running them on SQLite.
@@ -102,7 +102,7 @@ def refine_sql_candidates(prompt: str, raw_sql_candidates: list, expert_name: st
         while not success and attempts < max_attempts:
             print(f"[Refinement Triggered] Refining failed SQL (attempt {attempts+1}/{max_attempts})")
             clean_sql = refine_sql_with_feedback(prompt, clean_sql, error_message,
-                                                 expert_name, path_generate, end_num_prompts, model_version)
+                                                 expert_name, path_generate, start_num_prompts, model_version)
             clean_sql = sqlparse.format(extract_sql(clean_sql, "sensechat").strip(), reindent=False)
             success, error_message = execute_sql(clean_sql, db_path)
             print(f"attemps times : {attempts}" )

@@ -25,7 +25,7 @@ if __name__ == "__main__":
         with open(args.file, 'r', encoding='utf-8') as file:
             data = json.load(file)
         # 每個prompt的SQL candidates處理
-        for index,entry in enumerate(data):
+        for index,entry in enumerate(data): 
             processed_candidates = []
             if entry['sql_candidates']:  
                 if isinstance(entry['sql_candidates'], list):
@@ -47,7 +47,6 @@ if __name__ == "__main__":
             entry['sql_candidates'] = processed_candidates
             # 存回新的JSON檔案
         output_path = args.output if args.output else args.file.replace(".json", "_processed.json")
-        
         
         with open(output_path, 'w', encoding='utf-8') as f_out:
             json.dump(data, f_out, indent=4, ensure_ascii=False)

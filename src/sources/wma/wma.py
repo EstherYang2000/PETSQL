@@ -12,15 +12,23 @@ logger.addHandler(ch)
 
 import math
 
-def auto_select_epsilon(num_experts, num_rounds):
+def auto_select_epsilon(num_experts, num_rounds=None, best_mistakes=None):
     """
-    自動計算理論最佳的 epsilon 值，用於 Weighted Majority Algorithm。
+    自動計算 epsilon：
+    - 若提供 best_mistakes（M*），使用理論最優值
+    - 否則退回保守估計 ε = sqrt(log(N)/T)
+    """
+    if num_experts < 1:
+        raise ValueError("num_experts 必須 >= 1")
     
-    ε = sqrt(log(N) / T)
-    """
-    if num_experts < 1 or num_rounds <= 0:
-        raise ValueError("num_experts 必須 >= 1 且 num_rounds 必須 > 0")
-    return math.sqrt(math.log(num_experts) / num_rounds)
+    log_N = math.log(num_experts)
+
+    if best_mistakes is not None and best_mistakes > 0:
+        return math.sqrt(log_N / best_mistakes)
+    elif num_rounds is not None and num_rounds > 0:
+        return math.sqrt(log_N / num_rounds)
+    else:
+        raise ValueError("需提供 num_rounds 或 best_mistakes 其中之一作為依據")
 
 
 class WeightedMajorityAlgorithm:
@@ -44,8 +52,9 @@ class WeightedMajorityAlgorithm:
             experts = {}
         self.experts = experts      # {expert_name: weight}
         self.epsilon = epsilon      # 衰減比例
+        self.mistake_counter = {name: 0 for name in experts}
 
-    def add_expert(self, expert_name: str, init_weight: float = 1.0):
+    def add_expert(self, expert_name: str, init_weight: float = 1.0,init_mistake_counter: int = 0):
         """
         Add a new expert to the algorithm with an initial weight.
         
@@ -55,9 +64,10 @@ class WeightedMajorityAlgorithm:
         """
         if expert_name not in self.experts:
             self.experts[expert_name] = init_weight
+            self.mistake_counter[expert_name] = init_mistake_counter
     
 
-    def update_weights(self, expert_name: str, is_correct: bool):
+    def update_weights(self, expert_name: str, is_correct: bool,strategy="wma"):
         """
         Update the weight of a single expert based on their prediction correctness.
         
@@ -68,10 +78,18 @@ class WeightedMajorityAlgorithm:
         if expert_name not in self.experts:
             raise ValueError(f"Expert '{expert_name}' not found in the algorithm")
 
-        if not is_correct:
+        if not is_correct and strategy != "naive":
             # Only decrease weight if the prediction was incorrect
             old_weight = self.experts[expert_name]
             self.experts[expert_name] = old_weight * (1 - self.epsilon)
+            self.mistake_counter[expert_name] += 1
+        elif not is_correct and strategy == "naive":
+            self.mistake_counter[expert_name] += 1
+    def get_mistake_counts(self):
+        """
+        回傳所有專家的錯誤次數。
+        """
+        return self.mistake_counter.copy()
 
     def weighted_majority_vote(self, predictions_dict):
         """

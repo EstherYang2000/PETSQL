@@ -13,14 +13,16 @@ def apply_schema_linking(sql_output_file, output_sl_file):
 
 def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num_prompts, dataset_type, n_samples, refinement,round=1,strategy="wma", auto_epsilon=False):
     expert_list = [
-        {"name": "llamaapi_3.3", "model": "llamaapi", "version": "3.3","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_llama_rf/final_sql_1.txt"},
+        {"name": "llamaapi_3.3", "model": "llamaapi", "version": "3.3","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rwma/final_sql_1_llamaapi_3.3_cc.txt"},
         # {"name": "gpt-4", "model": "gptapi", "version": "gpt-4"},
-        {"name": "gpt-4o", "model": "gptapi", "version": "gpt-4o","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_4o_rf/final_sql_1.txt"},
+        {"name": "gpt-4o", "model": "gptapi", "version": "gpt-4o","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rwma/final_sql_1_gptapi_chatgpt-4o-latest_cc.txt"},
         # {"name": "o1-preview", "model": "gptapi", "version": "o1-preview"},
-        {"name": "o3-mini", "model": "gptapi", "version": "o3-mini","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_o3_mini_rf/final_sql_1.txt"},
-        # {"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16","path":"./data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_3/qwen_api_32b-instruct-fp16_cc_output.txt"},
+        {"name": "o3-mini", "model": "gptapi", "version": "o3-mini","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rwma/final_sql_1_gptapi_o3-mini_cc.txt"},
+        {"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rwma/final_sql_1_qwen_api_32b-instruct-fp16_cc.txt"},
         # {"name": "mistralapi_small_24b", "model": "mistralapi", "version": "small_24b"},
-        {"name": "qwen_api_2_5_72b", "model": "qwen_api", "version": "2_5_72b","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_dev20250317/final_sql_1_qwen_api_2_5_72b_cc.txt"},
+        {"name": "qwen_api_2_5_72b", "model": "qwen_api", "version": "2_5_72b","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rwma/final_sql_1_qwen_api_2_5_72b_cc.txt"},
+        {"name": "gemini", "model": "googlegeminiapi", "version": "gemini-2.5-pro-exp-03-25","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rwma/final_sql_1_googlegeminiapi_gemini-2.5-pro-exp-03-25_cc.txt"},
+
     ]
         # 計算 epsilon
     if auto_epsilon:
@@ -28,7 +30,7 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
         print(f"[auto_epsilon] epsilon selected: {epsilon:.6f}")
     else:
         epsilon = 0.005
-    wma = WeightedMajorityAlgorithm(epsilon=0.005)
+    wma = WeightedMajorityAlgorithm(epsilon=epsilon)
     
     for expert in expert_list:
         path = expert['path']
@@ -76,6 +78,7 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
             final_sql, chosen_experts, best_weight = wma.randomized_weighted_majority_vote(predictions)
         else:
             final_sql, chosen_experts, best_weight = wma.weighted_majority_vote(predictions)
+            
         gold_sql = sample.get("gold_sql")
         
         if gold_sql:
@@ -89,23 +92,39 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
                     if evaluate_cc(gold_sql, [candidate_sql], db, "all", kmaps):
                         is_correct_any = True
                         break
-                wma.update_weights(expert, is_correct_any)
+                wma.update_weights(expert, is_correct_any,strategy=strategy)
+        if auto_epsilon and index > 0:
+            mistake_counts = wma.get_mistake_counts()
+            best_expert_name, best_mistake_count = min(mistake_counts.items(), key=lambda x: x[1])
 
-        final_sql, chosen_experts, best_weight = wma.weighted_majority_vote(predictions)
+            print(f"[Round {index}] epsilon updated to {epsilon:.6f} using best_expert: {best_expert_name} (mistakes: {best_mistake_count})")
+        else:
+            best_expert_name, best_mistake_count = "-", 0
+        print(f"✅ Overall best expert: {best_expert_name} with {best_mistake_count} mistakes.")
+
         results.append({
             "index": index + start_num_prompts,
             "question": sample["question"],
             "gold_sql": gold_sql,
             "final_sql": final_sql,
             "chosen_experts": chosen_experts,
-            # "is_correct": is_correct_any,
-            "current_weights": wma.get_weights()
+            "is_correct": is_correct_any,
+            "current_weights": wma.get_weights(),
+            "current_epsilon": epsilon,
+            "currenrt_mistakes": wma.get_mistake_counts(),
+            "best_expert": best_expert_name,
+            "best_expert_mistakes": best_mistake_count
+            
         })
         final_results.append({
             "index": index + start_num_prompts,
             "final_sql": final_sql,
             "chosen_expert": chosen_experts,
-            "best_weight": best_weight
+            "best_weight": best_weight,
+            "current_epsilon": epsilon,
+            "currenrt_mistakes": wma.get_mistake_counts(),
+            "best_expert": best_expert_name,
+            "best_expert_mistakes": best_mistake_count
         })
 
     append_json(os.path.join(path_generate, f"final_result_{round}.json"), final_results)
@@ -135,7 +154,7 @@ if __name__ == "__main__":
     parser.add_argument("--refinement", action="store_true",
                     help="whether to do refinement")
     parser.add_argument("--rounds",type=int, default=1)
-    parser.add_argument("--strategy", type=str, default="wma", choices=["wma", "rwma"],
+    parser.add_argument("--strategy", type=str, default="wma", choices=["wma", "rwma","naive"],
                     help="Voting strategy to use: wma (Weighted Majority) or rwma (Randomized WMA)")
 
     parser.add_argument("--auto_epsilon", action="store_true",
@@ -168,7 +187,7 @@ if __name__ == "__main__":
 
     """
     python src/sources/wma/cc_gpt.py \
-    --path_generate data/process/vote/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_base_sl_rwma_wo_llama_qwencoder \
+    --path_generate data/process/vote/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_sl_rwma \
     --gold ./data/spider/dev_gold.sql \
     --start_num_prompts 0 \
     --end_num_prompts 1034 \
@@ -181,10 +200,32 @@ if __name__ == "__main__":
     
     python src/sources/evaluation.py \
      --gold ./data/spider/dev_gold.sql  \
-     --pred data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/final_sql_1.txt \
+     --pred data/process/vote/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_sl_rwma/final_sql_1.txt \
      --etype all \
      --db ./data/spider/database \
      --table ./data/spider/tables.json \
+     --num 1034
+     
+     
+     
+    python src/sources/wma/cc_gpt.py \
+    --path_generate data/process/vote/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034 \
+    --gold ./data/spider/test_gold.sql \
+    --start_num_prompts 0 \
+    --end_num_prompts 1034 \
+    --n_samples 1 \
+    --dataset_type test \
+    --call_mode append \
+    --rounds 1 \
+    --strategy wma \
+    --auto_epsilon
+    
+    python src/sources/evaluation.py \
+     --gold ./data/spider/test_gold.sql  \
+     --pred data/process/vote/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034/final_sql_1.txt \
+     --etype all \
+     --db ./data/spider/test_database \
+     --table ./data/spider/test_tables.json \
      --num 1034
 
     

@@ -1,6 +1,6 @@
 import sqlparse
 from post_process import extract_sql
-from llms import OllamaChat, GPT, GroqChat,TogetherChat,ClaudeChat
+from llms import OllamaChat, GPT, GroqChat,TogetherChat,ClaudeChat,GoogleGeminiChat
 from time import sleep
 from tqdm import tqdm
 import json
@@ -85,6 +85,9 @@ def run_sql_generation(model,
     elif model == "claudeaapi":
         api_key = os.environ["SEGMIND_API_KEY"]
         llm_instance = ClaudeChat(api_key=api_key)
+    elif model == "googlegeminiapi":
+        api_key = os.environ["GOOGLE_API_KEY"]
+        llm_instance = GoogleGeminiChat(api_key=api_key)
     elif model == "deepseekapi":
         if model_version == "v2-16b":
             llm_instance = OllamaChat(model="deepseek-coder-v2:16b")
@@ -121,7 +124,7 @@ def run_sql_generation(model,
 
             for i in tqdm(range(0, len(prompts), batch_size), desc="Processing Batches"):
                 batch = prompts[i:i + batch_size]
-                if model in["deepseekapi" ,"codellamaapi" , "llamaapi" , "phind-codellamaapi" , "qwen_api" ,"mistralapi","claudeaapi"]:
+                if model in["deepseekapi" ,"codellamaapi" , "llamaapi" , "phind-codellamaapi" , "qwen_api" ,"mistralapi","claudeaapi","googlegeminiapi"]:
                     if n_samples == 1:
                         batch_responses = llm_instance.generate_batch(batch)
                     else:
@@ -195,11 +198,11 @@ def run_sql_generation(model,
     return combined_result  # 這裡也可以直接return JSON結構，方便後續其他function接著用
 
 
-def run_refinement_pipeline(db_path:str,prompt:str,sql_candidates:list,path_generate:str,end_num_prompts:int,model:str,model_version):
+def run_refinement_pipeline(db_path:str,prompt:str,sql_candidates:list,path_generate:str,start_num_prompts:int,model:str,model_version):
     from refine.refinement import refine_sql_candidates  # 避免循環import
 
     for raw_data in sql_candidates:
         raw_clean = [sqlparse.format(extract_sql(sql, "sensechat").strip(), reindent=False) for sql in raw_data['sql_candidates']]
-        raw_data['sql_candidates'] = refine_sql_candidates(prompt, raw_clean, model, path_generate, end_num_prompts, model_version, db_path)
+        raw_data['sql_candidates'] = refine_sql_candidates(prompt, raw_clean, model, path_generate, start_num_prompts, model_version, db_path)
     return sql_candidates
 

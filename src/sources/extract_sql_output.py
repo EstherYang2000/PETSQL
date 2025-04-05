@@ -11,7 +11,6 @@ def extract_sql_candidates(json_file, output_txt_file):
     for entry in data:
         sql_candidates = entry.get('sql_candidates', [])
         all_sqls.extend(sql_candidates)
-
     # 3. Write to TXT file
     with open(output_txt_file, 'w', encoding='utf-8') as f_out:
         for sql in all_sqls:

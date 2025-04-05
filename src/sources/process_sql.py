@@ -521,27 +521,35 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
         if toks[idx] == "(":
             idx += 1
             if idx < len_ and toks[idx] == "select":
-                # Parse subquery as a value, not a condition
+                # Parse subquery as a value within parentheses
                 idx, subquery = parse_sql(toks, idx, tables_with_alias, schema)
-                assert idx < len_ and toks[idx] == ")", f"Expected ')' but got {toks[idx]}"
+                assert idx < len_ and toks[idx] == ")", f"Expected ')' after subquery but got {toks[idx]}"
                 idx += 1  # Skip ')'
 
+                # Handle NOT before the operator
                 if idx < len_ and toks[idx] == "not":
                     not_op = True
                     idx += 1
 
-                if idx < len_ and toks[idx] in WHERE_OPS:
-                    op_id = WHERE_OPS.index(toks[idx])
-                    idx += 1
-                    val1 = val2 = None
+                # Look for the operator before the subquery by backtracking
+                prev_idx = start_idx
+                while prev_idx < len_ and toks[prev_idx] not in WHERE_OPS:
+                    prev_idx += 1
+                if prev_idx < len_ and toks[prev_idx] in WHERE_OPS:
+                    op_id = WHERE_OPS.index(toks[prev_idx])
+                    idx_before_subquery = prev_idx + 1  # Position after operator
+                    assert idx_before_subquery <= len_ and toks[idx_before_subquery] == "(", f"Expected '(' after operator but got {toks[idx_before_subquery]}"
+                    # Parse the left-hand side val_unit (before the subquery)
+                    _, val_unit = parse_val_unit(toks, start_idx, tables_with_alias, schema, default_tables)
+                    val1 = subquery
+                    val2 = None
 
                     if op_id == WHERE_OPS.index("between"):
-                        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-                        assert toks[idx] == "and"
+                        assert idx < len_ and toks[idx] == "and", f"Expected 'and' but got {toks[idx]}"
                         idx += 1
                         idx, val2 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
                     elif op_id == WHERE_OPS.index("in"):
-                        assert toks[idx] == "(", f"Expected '(' but got {toks[idx]}"
+                        assert idx < len_ and toks[idx] == "(", f"Expected '(' but got {toks[idx]}"
                         idx += 1
                         if toks[idx] == "select":
                             idx, val1 = parse_sql(toks, idx, tables_with_alias, schema)
@@ -552,7 +560,7 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
                                 val_list.append(val)
                                 if toks[idx] == ",":
                                     idx += 1
-                            assert toks[idx] == ")"
+                            assert idx < len_ and toks[idx] == ")", f"Expected ')' but got {toks[idx]}"
                             idx += 1
                             val1 = val_list
                     elif op_id == WHERE_OPS.index("like"):
@@ -564,13 +572,10 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
                         assert idx < len_ and toks[idx] == "null", f"Expected 'null' but got {toks[idx]}"
                         val1 = "NULL"
                         idx += 1
-                    else:  # Comparison operators
-                        idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
 
-                    val_unit = (UNIT_OPS.index("none"), (AGG_OPS.index("none"), subquery, False), None)
                     conds.append((not_op, op_id, val_unit, val1, val2))
                 else:
-                    raise ValueError("Subquery in parentheses must be followed by a comparison operator")
+                    raise ValueError("Subquery in parentheses must be preceded by a comparison operator")
             else:
                 # Parse regular condition inside parentheses
                 idx, sub_conds = parse_condition(toks, idx, tables_with_alias, schema, default_tables)
@@ -588,7 +593,7 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
 
                     if op_id == WHERE_OPS.index("between"):
                         idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-                        assert toks[idx] == "and"
+                        assert toks[idx] == "and", f"Expected 'and' but got {toks[idx]}"
                         idx += 1
                         idx, val2 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
                     elif op_id == WHERE_OPS.index("in"):
@@ -603,7 +608,7 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
                                 val_list.append(val)
                                 if toks[idx] == ",":
                                     idx += 1
-                            assert toks[idx] == ")"
+                            assert toks[idx] == ")", f"Expected ')' but got {toks[idx]}"
                             idx += 1
                             val1 = val_list
                     elif op_id == WHERE_OPS.index("like"):
@@ -654,7 +659,7 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
 
                     if op_id == WHERE_OPS.index("between"):
                         idx, val1 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
-                        assert toks[idx] == "and"
+                        assert toks[idx] == "and", f"Expected 'and' but got {toks[idx]}"
                         idx += 1
                         idx, val2 = parse_value(toks, idx, tables_with_alias, schema, default_tables)
                     elif op_id == WHERE_OPS.index("in"):
@@ -669,7 +674,7 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
                                 val_list.append(val)
                                 if toks[idx] == ",":
                                     idx += 1
-                            assert toks[idx] == ")"
+                            assert toks[idx] == ")", f"Expected ')' but got {toks[idx]}"
                             idx += 1
                             val1 = val_list
                     elif op_id == WHERE_OPS.index("like"):
@@ -1118,10 +1123,10 @@ def skip_semicolon(toks, start_idx):
 if __name__ == "__main__":
     import os
     db_dir = "data/spider/test_database"
-    db = "address_1"
+    db = "e_commerce"
     db_path = os.path.join(db_dir, db, db + ".sqlite")
     schema = Schema(get_schema(db_path))
-    p_str = """SELECT city_name FROM City ORDER BY ((latitude - 41.85)*(latitude - 41.85) + (longitude + 87.65)*(longitude + 87.65)) LIMIT 1;"""
+    p_str = """SELECT email_address, town_city, county FROM Customers WHERE gender_code = (   SELECT gender_code   FROM Orders   JOIN Customers USING(customer_id)   GROUP BY gender_code   ORDER BY COUNT(*) ASC   LIMIT 1 );"""
     try:
         p_sql = get_sql(schema, p_str)
         # print("Parsed SQL:", json.dumps(p_sql, indent=2))

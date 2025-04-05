@@ -15,20 +15,25 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
     expert_list = [
         # {"name": "llamaapi_3.3", "model": "llamaapi", "version": "3.3"},
     #     {"name": "gpt-4", "model": "gptapi", "version": "gpt-4"},
-        # {"name": "gpt-4o", "model": "gptapi", "version": "gpt-4o"},
+        # {"name": "gpt-4o", "model": "gptapi", "version": "chatgpt-4o-latest"},
         # {"name": "o1-preview", "model": "gptapi", "version": "o1-preview"},
+        # {"name": "o1", "model": "gptapi", "version": "o1"},
+        # {"name": "gpt-4.5", "model": "gptapi", "version": "gpt-4.5-preview"},
         # {"name": "o3-mini", "model": "gptapi", "version": "o3-mini"},
-        {"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16"},
+        # {"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16"},
         # {"name": "mistralapi_small_24b", "model": "mistralapi", "version": "small_24b"},
         # {"name": "qwen_api_2_5_72b", "model": "qwen_api", "version": "2_5_72b"},
+        {"name": "gemini", "model": "googlegeminiapi", "version": "gemini-2.5-pro-exp-03-25"},
+        
     ]
-    # 計算 epsilon
+        # 計算 epsilon
     if auto_epsilon:
         epsilon = auto_select_epsilon(len(expert_list), end_num_prompts - start_num_prompts)
         print(f"[auto_epsilon] epsilon selected: {epsilon:.6f}")
     else:
         epsilon = 0.005
-    wma = WeightedMajorityAlgorithm(epsilon=0.005)
+    wma = WeightedMajorityAlgorithm(epsilon=epsilon)
+
     for expert in expert_list:
         wma.add_expert(expert["name"], init_weight=1.0)
 
@@ -55,7 +60,7 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
 
             if refinement:
                 refined_candidates = run_refinement_pipeline(
-                    db_path, sample['prompt'], raw_sql_output, path_generate, end_num_prompts, expert['model'], expert['version']
+                    db_path, sample['prompt'], raw_sql_output, path_generate, start_num_prompts + index, expert['model'], expert['version']
                 )
                 refined_candidates[0]['sql_candidates'] = list(set(refined_candidates[0]['sql_candidates']))
                 predictions[expert['name']] = refined_candidates[0]['sql_candidates']
@@ -79,10 +84,17 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
                 for candidate_sql in sql_list:
                     if evaluate_cc(gold_sql, [candidate_sql], db, "all", kmaps):
                         is_correct_any = True
-                        break
-                wma.update_weights(expert, is_correct_any)
+                        break 
+                wma.update_weights(expert, is_correct_any,strategy=strategy)
+        if auto_epsilon and index > 0:
+            mistake_counts = wma.get_mistake_counts()
+            best_expert_name, best_mistake_count = min(mistake_counts.items(), key=lambda x: x[1])
 
-        final_sql, chosen_experts, best_weight = wma.weighted_majority_vote(predictions)
+            print(f"[Round {index}] epsilon updated to {epsilon:.6f} using best_expert: {best_expert_name} (mistakes: {best_mistake_count})")
+        else:
+            best_expert_name, best_mistake_count = "-", 0
+        print(f"✅ Overall best expert: {best_expert_name} with {best_mistake_count} mistakes.")
+
         results.append({
             "index": index + start_num_prompts,
             "question": sample["question"],
@@ -90,13 +102,22 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
             "final_sql": final_sql,
             "chosen_experts": chosen_experts,
             "is_correct": is_correct_any,
-            "current_weights": wma.get_weights()
+            "current_weights": wma.get_weights(),
+            "current_epsilon": epsilon,
+            "currenrt_mistakes": wma.get_mistake_counts(),
+            "best_expert": best_expert_name,
+            "best_expert_mistakes": best_mistake_count
+            
         })
         final_results.append({
             "index": index + start_num_prompts,
             "final_sql": final_sql,
             "chosen_expert": chosen_experts,
-            "best_weight": best_weight
+            "best_weight": best_weight,
+            "current_epsilon": epsilon,
+            "currenrt_mistakes": wma.get_mistake_counts(),
+            "best_expert": best_expert_name,
+            "best_expert_mistakes": best_mistake_count
         })
 
     append_json(os.path.join(path_generate, f"final_result_{round}.json"), final_results)
@@ -126,7 +147,7 @@ if __name__ == "__main__":
     parser.add_argument("--refinement", action="store_true",
                     help="whether to do refinement")
     parser.add_argument("--rounds",type=int, default=1)
-    parser.add_argument("--strategy", type=str, default="wma", choices=["wma", "rwma"],
+    parser.add_argument("--strategy", type=str, default="wma", choices=["wma", "rwma","naive"],
                     help="Voting strategy to use: wma (Weighted Majority) or rwma (Randomized WMA)")
 
     parser.add_argument("--auto_epsilon", action="store_true",

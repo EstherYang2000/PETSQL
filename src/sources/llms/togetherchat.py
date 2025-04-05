@@ -50,80 +50,117 @@ class TogetherChat:
                 responses.append("")
         return responses
 
+import sqlite3
+def execute_sql(sql: str, db_path: str) -> (bool, str):
+        """
+        Execute SQL against the target SQLite database.
+        :return: (success, error_message)
+        """
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute(sql)
+            conn.close()
+            return True, ""
+        except sqlite3.Error as e:
+            return False, str(e)
+
 # 使用示例
 if __name__ == "__main__":
     chat_bot = TogetherChat()
     prompts = """
-    ### Some example pairs of question and corresponding SQL query are provided based on similar problems:
+### Some example pairs of question and corresponding SQL query are provided based on similar problems:
 
-### What is the author of the submission with the highest score?
-SELECT Author FROM submission ORDER BY Scores DESC LIMIT 1
+### Show the phone, room, and building for the faculty named Jerry Prince.
+SELECT phone ,  room ,  building FROM Faculty WHERE Fname  =  "Jerry" AND Lname  =  "Prince"
 
-### What is the country of the airport with the highest elevation?
-SELECT country FROM airports ORDER BY elevation DESC LIMIT 1
+### Show the document name and the document date for all documents on project with details 'Graph Database project'.
+SELECT document_name ,  document_date FROM Documents AS T1 JOIN projects AS T2 ON T1.project_id  =  T2.project_id WHERE T2.project_details  =  'Graph Database project'
 
-### What is the name and sex of the candidate with the highest support rate?
-SELECT t1.name ,  t1.sex FROM people AS t1 JOIN candidate AS t2 ON t1.people_id  =  t2.people_id ORDER BY t2.support_rate DESC LIMIT 1
+### Show the positions of the players from the team with name "Ryley Goldner".
+SELECT T1.Position FROM match_season AS T1 JOIN team AS T2 ON T1.Team  =  T2.Team_id WHERE T2.Name  =  "Ryley Goldner"
 
-### What is the name, city, and country of the airport with the highest elevation?
-SELECT name ,  city ,  country FROM airports ORDER BY elevation DESC LIMIT 1
+### Show the players and years played for players from team "Columbus Crew".
+SELECT T1.Player , T1.Years_Played FROM player AS T1 JOIN team AS T2 ON T1.Team  =  T2.Team_id WHERE T2.Name  =  "Columbus Crew"
 
-### What is the title of the film that has the highest high market estimation.
-SELECT t1.title FROM film AS T1 JOIN film_market_estimation AS T2  ON T1.Film_ID  =  T2.Film_ID ORDER BY high_estimate DESC LIMIT 1
+### Find the total budgets of the Marketing or Finance department.
+SELECT sum(budget) FROM department WHERE dept_name  =  'Marketing' OR dept_name  =  'Finance'
 
-### What are the title and rental rate of the film with the highest rental rate?
-SELECT title ,  rental_rate FROM film ORDER BY rental_rate DESC LIMIT 1
+### Show the description for role name "Proof Reader".
+SELECT role_description FROM ROLES WHERE role_name  =  "Proof Reader"
 
-### What is the id of the trip that started from the station with the highest dock count?
-SELECT T1.id FROM trip AS T1 JOIN station AS T2 ON T1.start_station_id  =  T2.id ORDER BY T2.dock_count DESC LIMIT 1
+### Find the names and descriptions of the photos taken at the tourist attraction called "film festival".
+SELECT T1.Name ,  T1.Description FROM PHOTOS AS T1 JOIN TOURIST_ATTRACTIONS AS T2 ON T1.Tourist_Attraction_ID  =  T2.Tourist_Attraction_ID WHERE T2.Name  =  "film festival"
 
-### which poll source does the highest oppose rate come from?
-SELECT poll_source FROM candidate ORDER BY oppose_rate DESC LIMIT 1
+### Find the first name and last name for the "CTO" of the club "Hopkins Student Enterprises"?
+SELECT t3.fname ,  t3.lname FROM club AS t1 JOIN member_of_club AS t2 ON t1.clubid  =  t2.clubid JOIN student AS t3 ON t2.stuid  =  t3.stuid WHERE t1.clubname  =  "Hopkins Student Enterprises" AND t2.position  =  "CTO"
 
-### What is the stories of highest building?
-SELECT Stories FROM buildings ORDER BY Height DESC LIMIT 1
+### Find the name and capacity of the stadium where the event named "World Junior" happened.
+SELECT t1.name ,  t1.capacity FROM stadium AS t1 JOIN event AS t2 ON t1.id  =  t2.stadium_id WHERE t2.name  =  'World Junior'
 
 ### Your task: 
 Answer the final question below by providing **only** the final SQLite SQL query syntax without commentary and explanation.  You must minimize SQL execution time while ensuring correctness.
 
     ### Sqlite SQL tables, with their properties:
 #
-# stadium(Stadium_ID, Location, Name, Capacity, Highest, Lowest, Average);
-# singer(Singer_ID, Name, Country, Song_Name, Song_release_year, Age, Is_male);
-# concert(concert_ID, concert_Name, Theme, Stadium_ID, Year);
-# singer_in_concert(concert_ID, Singer_ID).
+# battle(id, name, date, bulgarian_commander, latin_commander, result);
+# ship(lost_in_battle, id, name, tonnage, ship_type, location, disposition_of_ship);
+# death(caused_by_ship_id, id, note, killed, injured).
 #
     # ### Here are some data information about database references.
     # #
-# stadium(Stadium_ID[1,2,3],Location[Raith Rovers,Ayr United,East Fife],Name[Stark's Park,Somerset Park,Bayview Stadium],Capacity[10104,11998,2000],Highest[4812,2363,1980],Lowest[1294,1057,533],Average[2106,1477,864]);
-# singer(Singer_ID[1,2,3],Name[Joe Sharp,Timbaland,Justin Brown],Country[Netherlands,United States,France],Song_Name[You,Dangerous,Hey Oh],Song_release_year[1992,2008,2013],Age[52,32,29],Is_male[F,T,T]);
-# concert(concert_ID[1,2,3],concert_Name[Auditions,Super bootcamp,Home Visits],Theme[Free choice,Free choice 2,Bleeding Love],Stadium_ID[1,2,2],Year[2014,2014,2015]);
-# singer_in_concert(concert_ID[1,1,1],Singer_ID[2,3,5]);
+# battle(id[1,2,3],name[Battle of Adrianople,Battle of Serres,Battle of Rusion],date[14 April 1205,June 1205,31 January 1206],bulgarian_commander[Kaloyan,Kaloyan,Kaloyan],latin_commander[Baldwin I,Unknown,Thierry de Termond],result[Bulgarian victory,Bulgarian victory,Bulgarian victory]);
+# ship(lost_in_battle[8,7,6],id[1,2,3],name[Lettice,Bon Accord,Mary],tonnage[t,t,t],ship_type[Brig,Brig,Brig],location[English Channel,English Channel,English Channel],disposition_of_ship[Captured,Captured,Captured]);
+# death(caused_by_ship_id[1,2,3],id[1,2,13],note[Dantewada, Chhattisgarh,Dantewada, Chhattisgarh,Erraboru, Chhattisgarh],killed[8,3,25],injured[0,0,0]);
 #
 ### Foreign key information of Sqlite SQL tables, used for table joins: 
 #
-# concert(Stadium_ID) REFERENCES stadium(Stadium_ID);
-# singer_in_concert(Singer_ID) REFERENCES singer(Singer_ID);
-# singer_in_concert(concert_ID) REFERENCES concert(concert_ID)
+# ship(lost_in_battle) REFERENCES battle(id);
+# death(caused_by_ship_id) REFERENCES ship(id)
 #
-### Final Question: Show all countries and the number of singers in each country.
-### SQL: 
-    
-    
+### Final Question: Show names, results and bulgarian commanders of the battles with no ships lost in the 'English Channel'.
+### SQL:
     """
     
-    response = chat_bot.chat_batch([prompts])
-    print(response)
+    # response = chat_bot.generate_batch([prompts])
+    # print(response)
     
-    # from together import Together
+    
+    
+    
+    
+    db_id = "dog_kennels"
+    db_path = f"./data/spider/test_database/{db_id}/{db_id}.sqlite"
+    raw_sql = """SELECT T2.breed_name FROM Dogs AS T1 JOIN Breeds AS T2 ON T1.breed_code  =  T2.breed_code GROUP BY T1.breed_code ORDER BY count(*) DESC LIMIT 1"""
+    result, error_message = execute_sql(raw_sql,db_path)
+    print(f"Execution result: {result}, Error message: {error_message}")
+    
+    # database_type = "SQLite"
+    # refinement_prompt = f"""
+    # ### Task
+    # You are a SQL expert responsible for fixing incorrect {database_type} SQL queries.
+    # **only** the final {database_type} SQL query syntax without commentary and explanation.
 
-    # client = Together()
+    # ### User Question
+    # {prompts}
 
-    # stream = client.chat.completions.create(
-    # model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-    # messages=[{"role": "user", "content": "What are the top 3 things to do in New York?"}],
-    # stream=True,
-    # )
+    # ### Initial Generated SQL (which failed)
+    # {raw_sql}
 
-    # for chunk in stream:
-    #     print(chunk.choices[0].delta.content or "", end="", flush=True)
+    # ### Error Message from Database Execution
+    # {error_message}
+
+    # ### Instruction
+    # Please rewrite the {database_type} SQL query to correct the above errors. 
+    # - Ensure the syntax strictly follows the target SQL dialect.
+    # - Refer to the provided schema if necessary.
+    # - Ensure table names and column names are correctly referenced.
+    # - Double-check joins, conditions, and aggregations.
+
+    # ### Final Corrected SQL 
+    # ### SQL: 
+
+    # """
+    # # response = chat_bot.generate_batch([refinement_prompt])
+    # print(response)
+    
