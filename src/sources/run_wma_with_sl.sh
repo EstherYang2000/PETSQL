@@ -47,21 +47,21 @@ QUESTIONS_JSON="${PATH_GENERATE}/questions.json"
 # echo "## Performing Schema Linking ..."
 # SQL_OUTPUT_FILE="${PATH_GENERATE}/final_sql_${ROUND}.txt"
 
-# python src/sources/schemalink.py \
-#     --output ppl_${DATASET_TYPE}_add_sl.json \
-#     --file data/process/vote/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1.txt \
-#     --dataset_type ${DATASET_TYPE}
+python src/sources/schemalink.py \
+    --output ppl_${DATASET_TYPE}_add_sl.json \
+    --file data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_gemini_rf/final_sql_1.txt \
+    --dataset_type ${DATASET_TYPE}
 
 
 # # # # # # # # # # Step 3: 生成新的Prompt (帶Schema Linking資訊的Prompt)
-# echo "## Generating second round prompt (with schema linking)..."
-# python src/sources/sql_gen/prompt_gen.py \
-#     --dataset ppl_${DATASET_TYPE}_add_sl.json \
-#     --dataset_type ${DATASET_TYPE} \
-#     --n 1034 \
-#     --kshot 9 \
-#     --select_type Euclidean_mask \
-#     --sl
+echo "## Generating second round prompt (with schema linking)..."
+python src/sources/sql_gen/prompt_gen.py \
+    --dataset ppl_${DATASET_TYPE}_add_sl.json \
+    --dataset_type ${DATASET_TYPE} \
+    --n 1034 \
+    --kshot 9 \
+    --select_type Euclidean_mask \
+    --sl
 
 # # # # # Step 4: 第二輪 SQL 生成 (帶Schema Linking版 Prompt)
 echo "## Start second round SQL generation with WMA ..."

@@ -39,6 +39,7 @@ if __name__ == '__main__':
                         help="Which GPT version to use with gptapi? Options: o1-preview, gpt-4, gpt-4o")
     parser.add_argument("--path_generate", type=str,
                         help="Path to the generated raw file.")
+    parser.add_argument("--data_type", type=str)
     parser.add_argument("--dataset_type", type=str,
                         help="")
     parser.add_argument("--out_file", type=str, default="raw.txt")
@@ -50,7 +51,7 @@ if __name__ == '__main__':
                         help="mode to write or append")
     parser.add_argument("--batch_size", type=int, default=None,
                         help="")
-    parser.add_argument("--n_samples", type=int, default=1,
+    parser.add_argument("--n_samples", type=int, default=5,
                         help="Number of samples to generate for each prompt.")
     parser.add_argument("--refinement", action="store_true",
                     help="whether to do refinement")
@@ -65,6 +66,8 @@ if __name__ == '__main__':
     question_path = os.path.join(args.path_generate,"questions.json")
     with open(question_path) as f:
         questions = json.load(f)
+    if args.data_type == "bird":
+        questions = questions["questions"]
     input_questions = questions[args.start_num_prompts:args.end_num_prompts]
     # 執行主程式
     sql_candidates = run_sql_generation(

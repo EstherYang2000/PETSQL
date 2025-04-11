@@ -4,7 +4,7 @@ class GrokChat:
     """
     A class to encapsulate interaction with the Grok AI model using OpenAI-compatible API.
     """
-    def __init__(self, model: str = "grok-1", api_key: str = "$GROK_API_KEY", base_url: str = "https://api.x.ai/v1"):
+    def __init__(self, model: str = "grok-3-beta", api_key: str = "$GROK_API_KEY", base_url: str = "https://api.x.ai/v1"):
         """
         Initialize the GrokChat class with a specified model.
 

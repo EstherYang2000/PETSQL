@@ -83,7 +83,7 @@ class GPT:
         
         raise Exception(f"Failed to get a non-empty response after {retries} attempts")
 
-    def batch_generate(
+    def generate_batch(
         self,
         prompts: list,
         model: str = None,  # <-- 同樣在 batch_generate 加上 model 參數
@@ -117,7 +117,7 @@ class GPT:
                     # max_completion_tokens=max_tokens,
                     **kwargs
                 )
-                responses.append(response)
+                responses.extend(response)
                 time.sleep(2)
             except Exception as e:
                 print(f"Error: {e}")

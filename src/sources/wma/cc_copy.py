@@ -14,12 +14,12 @@ def apply_schema_linking(sql_output_file, output_sl_file):
 def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num_prompts, dataset_type, n_samples, refinement,round=1,strategy="wma", auto_epsilon=False):
     expert_list = [
         # {"name": "llamaapi_3.3", "model": "llamaapi", "version": "3.3"},
-        # {"name": "gpt-4", "model": "gptapi", "version": "gpt-4"},
-        {"name": "gpt-4o", "model": "gptapi", "version": "chatgpt-4o-latest"},
+    #     {"name": "gpt-4", "model": "gptapi", "version": "gpt-4"},
+        # {"name": "gpt-4o", "model": "gptapi", "version": "chatgpt-4o-latest"},
         # {"name": "o1-preview", "model": "gptapi", "version": "o1-preview"},
         # {"name": "o1", "model": "gptapi", "version": "o1"},
         # {"name": "gpt-4.5", "model": "gptapi", "version": "gpt-4.5-preview"},
-        # {"name": "o3-mini", "model": "gptapi", "version": "o3-mini"},
+        {"name": "o3-mini", "model": "gptapi", "version": "o3-mini"},
         # {"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16"},
         # {"name": "mistralapi_small_24b", "model": "mistralapi", "version": "small_24b"},
         # {"name": "qwen_api_2_5_72b", "model": "qwen_api", "version": "2_5_72b"},
@@ -180,3 +180,26 @@ if __name__ == "__main__":
 
     
 
+"""
+PATH_GENERATE="data/process/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034"
+START_NUM_PROMPTS=0
+END_NUM_PROMPTS=1034
+N_SAMPLES=1
+DATASET_TYPE="test"
+CALL_MODE="append"
+ROUND=1
+GOLD_SQL_PATH="./data/spider/test_gold.sql"
+QUESTIONS_JSON="${PATH_GENERATE}/questions.json"
+
+python src/sources/wma/cc_copy.py \
+    --path_generate data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive \
+    --gold ./data/spider/test_gold.sql \
+    --start_num_prompts 0 \
+    --end_num_prompts 1034 \
+    --n_samples 1 \
+    --dataset_type test \
+    --call_mode append \
+    --refinement \
+    --rounds 1
+
+"""

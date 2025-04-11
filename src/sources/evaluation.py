@@ -891,7 +891,6 @@ def eval_exec_match(db, p_str, g_str, pred, gold):
 def rebuild_cond_unit_val(cond_unit):
     if cond_unit is None or not DISABLE_VALUE:
         return cond_unit
-
     not_op, op_id, val_unit, val1, val2 = cond_unit
     if type(val1) is not dict:
         val1 = None

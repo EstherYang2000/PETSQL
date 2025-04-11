@@ -13,15 +13,15 @@ def apply_schema_linking(sql_output_file, output_sl_file):
 
 def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num_prompts, dataset_type, n_samples, refinement,round=1,strategy="wma", auto_epsilon=False):
     expert_list = [
-        {"name": "llamaapi_3.3", "model": "llamaapi", "version": "3.3","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rwma/final_sql_1_llamaapi_3.3_cc.txt"},
+        {"name": "llamaapi_3.3", "model": "llamaapi", "version": "3.3","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1_llamaapi_3.3_cc.txt"},
         # {"name": "gpt-4", "model": "gptapi", "version": "gpt-4"},
-        {"name": "gpt-4o", "model": "gptapi", "version": "gpt-4o","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rwma/final_sql_1_gptapi_chatgpt-4o-latest_cc.txt"},
+        {"name": "gpt-4o", "model": "gptapi", "version": "gpt-4o","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1_gptapi_chatgpt-4o-latest_cc.txt"},
         # {"name": "o1-preview", "model": "gptapi", "version": "o1-preview"},
-        {"name": "o3-mini", "model": "gptapi", "version": "o3-mini","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rwma/final_sql_1_gptapi_o3-mini_cc.txt"},
-        {"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rwma/final_sql_1_qwen_api_32b-instruct-fp16_cc.txt"},
+        {"name": "o3-mini", "model": "gptapi", "version": "o3-mini","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1_gptapi_o3-mini_cc.txt"},
+        {"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1_qwen_api_32b-instruct-fp16_cc.txt"},
         # {"name": "mistralapi_small_24b", "model": "mistralapi", "version": "small_24b"},
-        {"name": "qwen_api_2_5_72b", "model": "qwen_api", "version": "2_5_72b","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rwma/final_sql_1_qwen_api_2_5_72b_cc.txt"},
-        {"name": "gemini", "model": "googlegeminiapi", "version": "gemini-2.5-pro-exp-03-25","path":"data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rwma/final_sql_1_googlegeminiapi_gemini-2.5-pro-exp-03-25_cc.txt"},
+        {"name": "qwen_api_2_5_72b", "model": "qwen_api", "version": "2_5_72b","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1_qwen_api_2_5_72b_cc.txt"},
+        {"name": "gemini", "model": "googlegeminiapi", "version": "gemini-2.5-pro-exp-03-25","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1_googlegeminiapi_gemini-2.5-pro-exp-03-25_cc.txt"},
 
     ]
         # 計算 epsilon
@@ -187,7 +187,7 @@ if __name__ == "__main__":
 
     """
     python src/sources/wma/cc_gpt.py \
-    --path_generate data/process/vote/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_sl_rwma \
+    --path_generate data/process/vote/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive \
     --gold ./data/spider/dev_gold.sql \
     --start_num_prompts 0 \
     --end_num_prompts 1034 \
@@ -195,12 +195,12 @@ if __name__ == "__main__":
     --dataset_type dev \
     --call_mode append \
     --rounds 1 \
-    --strategy rwma \
+    --strategy naive \
     --auto_epsilon
     
     python src/sources/evaluation.py \
      --gold ./data/spider/dev_gold.sql  \
-     --pred data/process/vote/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_sl_rwma/final_sql_1.txt \
+     --pred data/process/vote/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1.txt \
      --etype all \
      --db ./data/spider/database \
      --table ./data/spider/tables.json \
@@ -209,7 +209,7 @@ if __name__ == "__main__":
      
      
     python src/sources/wma/cc_gpt.py \
-    --path_generate data/process/vote/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034 \
+    --path_generate data/process/vote/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive \
     --gold ./data/spider/test_gold.sql \
     --start_num_prompts 0 \
     --end_num_prompts 1034 \
@@ -217,16 +217,16 @@ if __name__ == "__main__":
     --dataset_type test \
     --call_mode append \
     --rounds 1 \
-    --strategy wma \
+    --strategy naive \
     --auto_epsilon
     
     python src/sources/evaluation.py \
      --gold ./data/spider/test_gold.sql  \
-     --pred data/process/vote/PPL_TEST.JSON-9_SHOT_Euclidean_mask_1034/final_sql_1.txt \
+     --pred data/process/vote/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1.txt \
      --etype all \
      --db ./data/spider/test_database \
      --table ./data/spider/test_tables.json \
-     --num 1034
+     --num 1034 > output.txt
 
     
     """

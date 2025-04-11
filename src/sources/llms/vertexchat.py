@@ -3,8 +3,8 @@ import google.generativeai as genai
 from base64 import b64encode
 import requests
 import time
-class GoogleGeminiChat:
-    def __init__(self, api_key=None, model_name="gemini-2.5-pro-exp-03-25"):
+class GoogleGeminiChat: 
+    def __init__(self, api_key=None, model_name="models/gemini-2.5-pro-preview-03-25"): # gemini-2.5-pro-exp-03-25 # gemini-2.5-pro-preview-03-25
         self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
         if not self.api_key:
             raise ValueError("API key not found. Set GOOGLE_API_KEY as an environment variable or pass it in.")
@@ -27,20 +27,27 @@ class GoogleGeminiChat:
         except Exception as e:
             return f"Error generating content: {str(e)}"
 
-
     def generate_batch(self, prompts):
         """Batch process text-only prompts and return responses as a list."""
         results = []
         for prompt in prompts:
-            try:
-                response = self.chat(prompt)
-                # Directly use response.text from the SDK
-                print(f"Raw response: {response}")
-                results.append(response.strip())
-                time.sleep(1)
-            except Exception as e:
-                print(f"Error for prompt '{prompt}': {e}")
-                results.append("")
+            max_retries = 3  # Set the maximum number of retries
+            retries = 0
+            while retries < max_retries:
+                try:
+                    response = self.chat(prompt)
+                    # Directly use response.text from the SDK
+                    print(f"Raw response: {response}")
+                    results.append(response.strip())
+                    time.sleep(5)  # Wait 10 seconds between prompts
+                    break  # Exit the retry loop on success
+                except Exception as e:
+                    retries += 1
+                    print(f"Error for prompt '{prompt}': {e}. Retrying in 1 minute... ({retries}/{max_retries})")
+                    time.sleep(60)  # Wait 1 minute before retrying
+                    if retries == max_retries:
+                        print(f"Failed after {max_retries} retries for prompt '{prompt}'.")
+                        results.append("")  # Append an empty result after max retries
         return results
 
 if __name__ == "__main__":
@@ -57,46 +64,55 @@ if __name__ == "__main__":
         """
 ### Some example pairs of question and corresponding SQL query are provided based on similar problems:
 
-### Which customer have the most policies? Give me the customer details.
-SELECT t2.customer_details FROM policies AS t1 JOIN customers AS t2 ON t1.customer_id  =  t2.customer_id GROUP BY t2.customer_details ORDER BY count(*) DESC LIMIT 1
+### Return the positions of players on the team Ryley Goldner.
+SELECT T1.Position FROM match_season AS T1 JOIN team AS T2 ON T1.Team  =  T2.Team_id WHERE T2.Name  =  "Ryley Goldner"
 
-### What are the names of cities that are in the county with the most police officers?
-SELECT name FROM city WHERE county_ID  =  (SELECT county_ID FROM county_public_safety ORDER BY Police_officers DESC LIMIT 1)
+### Return the address of customer 10.
+SELECT T1.address_details FROM addresses AS T1 JOIN customer_addresses AS T2 ON T1.address_id  =  T2.address_id WHERE T2.customer_id  =  10
 
-### What is the country that has the most perpetrators?
-SELECT Country ,  COUNT(*) FROM perpetrator GROUP BY Country ORDER BY COUNT(*) DESC LIMIT 1
+### Return the characteristic names of the 'sesame' product.
+SELECT t3.characteristic_name FROM products AS t1 JOIN product_characteristics AS t2 ON t1.product_id  =  t2.product_id JOIN CHARACTERISTICS AS t3 ON t2.characteristic_id  =  t3.characteristic_id WHERE t1.product_name  =  "sesame"
 
-### What is the label that has the most albums?
-SELECT label FROM albums GROUP BY label ORDER BY count(*) DESC LIMIT 1
+### Return the founder of Sony.
+SELECT founder FROM manufacturers WHERE name  =  'Sony'
 
-### Which artist has the most albums?
-SELECT T2.Name FROM ALBUM AS T1 JOIN ARTIST AS T2 ON T1.ArtistId  =  T2.ArtistId GROUP BY T2.Name ORDER BY COUNT(*) DESC LIMIT 1
+### Return the types of film market estimations in 1995.
+SELECT TYPE FROM film_market_estimation WHERE YEAR  =  1995
 
-### Which nationality has the most hosts?
-SELECT Nationality FROM HOST GROUP BY Nationality ORDER BY COUNT(*) DESC LIMIT 1
+### Return the names of musicals who have the nominee Bob Fosse.
+SELECT Name FROM musical WHERE Nominee  =  "Bob Fosse"
 
-### Which industry has the most companies?
-SELECT Industry FROM Companies GROUP BY Industry ORDER BY COUNT(*) DESC LIMIT 1
+### Return the the "active to date" of the latest contact channel used by the customer named "Tillman Ernser".
+SELECT max(t2.active_to_date) FROM customers AS t1 JOIN customer_contact_channels AS t2 ON t1.customer_id  =  t2.customer_id WHERE t1.customer_name  =  "Tillman Ernser"
 
-### Which song has the most vocals?
-SELECT title FROM vocals AS T1 JOIN songs AS T2 ON T1.songid  =  T2.songid GROUP BY T1.songid ORDER BY count(*) DESC LIMIT 1
+### Return the phone numbers of employees with salaries between 8000 and 12000.
+SELECT phone_number FROM employees WHERE salary BETWEEN 8000 AND 12000
 
-### Which major has the most students?
-SELECT Major FROM STUDENT GROUP BY major ORDER BY count(*) DESC LIMIT 1
+### Return the cities with more than 3 airports in the United States.
+SELECT city FROM airports WHERE country  =  'United States' GROUP BY city HAVING count(*)  >  3
 
 ### Your task: 
 Answer the final question below by providing **only** the final SQLite SQL query syntax without commentary and explanation.  You must minimize SQL execution time while ensuring correctness.
-### Sqlite SQL tables, with their properties:
+
+    ### Sqlite SQL tables, with their properties:
 #
-.
+# vehicle(Vehicle_ID, Model, Build_Year, Top_Speed, Power, Builder, Total_Production);
+# driver(Driver_ID, Name, Citizenship, Racing_Series);
+# vehicle_driver(Driver_ID, Vehicle_ID).
 #
-### Here are some data information about database references.
+    # ### Here are some data information about database references.
+    # #
+# vehicle(Vehicle_ID[1,2,3],Model[AC4000,DJ ,DJ1],Build_Year[1996,2000,2000–2001],Top_Speed[120,200,120],Power[4000,4800,6400],Builder[Zhuzhou,Zhuzhou,Zhuzhou Siemens , Germany],Total_Production[1,2,20]);
+# driver(Driver_ID[1,2,3],Name[Jeff Gordon,Jimmie Johnson,Tony Stewart],Citizenship[United States,United States,United States],Racing_Series[NASCAR,NASCAR,NASCAR]);
+# vehicle_driver(Driver_ID[1,1,1],Vehicle_ID[1,3,5]);
 #
-# Breeds(breed_code[ESK,HUS,BUL],breed_name[Eskimo,Husky,Bulldog]);
-# Dogs(dog_id[1,2,3],owner_id[3,11,1],abandoned_yn[1,0,0],breed_code[ESK,BUL,BUL],size_code[LGE,LGE,MED],name[Kacey,Hipolito,Mavis],age[6,9,8],date_of_birth[2012-01-27 05:11:53,2013-02-13 05:15:21,2008-05-19 15:54:49],gender[1,0,1],weight[7.57,1.72,8.04],date_arrived[2017-09-08 20:10:13,2017-12-22 05:02:02,2017-06-25 10:14:05],date_adopted[2018-03-06 16:32:11,2018-03-25 08:12:51,2018-03-07 21:45:43],date_departed[2018-03-25 06:58:44,2018-03-25 02:11:32,2018-03-25 10:25:46]);
+### Foreign key information of Sqlite SQL tables, used for table joins: 
 #
-### Final Question: Which breed do the most dogs have? Give me the breed name.
-### SQL:
+# vehicle_driver(Vehicle_ID) REFERENCES vehicle(Vehicle_ID);
+# vehicle_driver(Driver_ID) REFERENCES driver(Driver_ID)
+#
+### Final Question: Return the names of drivers with citizenship from the United States.
+### SQL: 
         """
     ]
     responses = chat_bot.generate_batch(batch_prompts)
