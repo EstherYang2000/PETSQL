@@ -9,3 +9,4 @@ from .groq_chat import GroqChat
 from .togetherchat import TogetherChat
 from .segmind import ClaudeChat
 from .vertexchat import GoogleGeminiChat
+from .grok import GrokChat

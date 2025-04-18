@@ -67,7 +67,7 @@ if __name__ == '__main__':
     with open(question_path) as f:
         questions = json.load(f)
     if args.data_type == "bird":
-        questions = questions["questions"]
+        questions = questions
     input_questions = questions[args.start_num_prompts:args.end_num_prompts]
     # 執行主程式
     sql_candidates = run_sql_generation(

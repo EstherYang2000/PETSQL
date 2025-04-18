@@ -2,20 +2,37 @@ import sqlparse
 from post_process import extract_sql
 from sql_gen.sql_utils import run_sql_generation
 import sqlite3
-def execute_sql(sql: str, db_path: str) -> (bool, str):
-    """
-    Execute SQL against the target SQLite database.
-    :return: (success, error_message)
-    """
-    try:
+# def execute_sql(sql: str, db_path: str) -> (bool, str):
+#     """
+#     Execute SQL against the target SQLite database.
+#     :return: (success, error_message)
+#     """
+#     try:
+#         conn = sqlite3.connect(db_path)
+#         cursor = conn.cursor()
+#         cursor.execute(sql)
+#         conn.close()
+#         return True, "ç
+#     except sqlite3.Error as e:
+#         return False, str(e)
+def connect_db(sql_dialect, db_path):
+    if sql_dialect == "SQLite":
         conn = sqlite3.connect(db_path)
+    else:
+        raise ValueError("Unsupported SQL dialect")
+    return conn
+def execute_sql(predicted_sql, db_path, sql_dialect):
+    try:
+
+        conn = connect_db(sql_dialect, db_path)
+        # Connect to the database
         cursor = conn.cursor()
-        cursor.execute(sql)
+        cursor.execute(predicted_sql)
         conn.close()
         return True, ""
     except sqlite3.Error as e:
-        return False, str(e)
-
+        print(f"SQLite error: {e}")
+        return False,str(e)
 def format_sql(raw_sql: str, llm: str = "sensechat") -> str:
     """
     Clean and format SQL using extract_sql and sqlparse.
@@ -90,7 +107,7 @@ def refine_sql_candidates(prompt: str, raw_sql_candidates: list, expert_name: st
         except Exception as e:
             print(f"[ERROR] SQL parsing failed before execution: {e}")
             continue
-        success, error_message = execute_sql(clean_sql, db_path)
+        success, error_message = execute_sql(clean_sql, db_path,"SQLite")
         
         print(f"clean_sql : {clean_sql}")
         print(f"status : {success}")
@@ -104,7 +121,7 @@ def refine_sql_candidates(prompt: str, raw_sql_candidates: list, expert_name: st
             clean_sql = refine_sql_with_feedback(prompt, clean_sql, error_message,
                                                  expert_name, path_generate, start_num_prompts, model_version)
             clean_sql = sqlparse.format(extract_sql(clean_sql, "sensechat").strip(), reindent=False)
-            success, error_message = execute_sql(clean_sql, db_path)
+            success, error_message = execute_sql(clean_sql, db_path,"SQLite")
             print(f"attemps times : {attempts}" )
             print(f"clean_sql : {clean_sql}")
             print(f"status : {success}")

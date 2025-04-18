@@ -11,7 +11,10 @@ from utils.linking_utils import abstract_preproc, corenlp, serialization
 from utils.linking_utils.spider_match_utils import (
     compute_schema_linking,
     compute_cell_value_linking,
-    match_shift
+    match_shift,
+    compute_schema_linking_gpu,
+    compute_cell_value_linking_gpu
+    
 )
 
 @attr.s
@@ -125,12 +128,14 @@ class SpiderEncoderV2Preproc(abstract_preproc.AbstractPreproc):
             # count_tokens_in_word_emb_for_vocab=False,
             fix_issue_16_primary_keys=False,
             compute_sc_link=False,
-            compute_cv_link=False):
+            compute_cv_link=False,
+            device='cuda' if torch.cuda.is_available() else 'cpu'  # Add device parameter
+        ):
         if word_emb is None:
             self.word_emb = None
         else:
             self.word_emb = word_emb
-
+        self.device = device  # Store the device (CPU or GPU)
         self.data_dir = os.path.join(save_path, 'enc')
         self.include_table_name_in_column = include_table_name_in_column
         # self.count_tokens_in_word_emb_for_vocab = count_tokens_in_word_emb_for_vocab
@@ -181,7 +186,15 @@ class SpiderEncoderV2Preproc(abstract_preproc.AbstractPreproc):
             # print(column_names_without_types)
             # Compute schema linking between the question and column/table names
             # print("----------------------compute_schema_linking----------------------")
-            sc_link = compute_schema_linking(question, column_names_without_types, preproc_schema.table_names)
+            # sc_link = compute_schema_linking(question, column_names_without_types, preproc_schema.table_names)
+            # Use GPU-accelerated schema linking
+            sc_link = compute_schema_linking_gpu(
+                question,
+                column_names_without_types,
+                preproc_schema.table_names,
+                # self.word_emb,
+                # device=self.device
+            )
             # print("----------------------sc_link----------------------")
             # print(sc_link) # {'q_col_match': {'2,8': 'CPM', '2,21': 'CPM'}, 'q_tab_match': {'2,1': 'TEM', '2,3': 'TPM'}}
             
@@ -193,7 +206,13 @@ class SpiderEncoderV2Preproc(abstract_preproc.AbstractPreproc):
         if self.compute_cv_link:
             # print("----------------------compute_cell_value_linking----------------------")
             # print(question) # ['how', 'many', 'singer', 'do', 'we', 'have', '?']
-            cv_link = compute_cell_value_linking(question, schema)
+            # cv_link = compute_cell_value_linking(question, schema)
+            cv_link = compute_cell_value_linking_gpu(
+                question,
+                schema,
+                # self.word_emb,
+                # device=self.device
+            )
         else:
             # If cell value linking computation is disabled, use empty placeholders
             cv_link = {"num_date_match": {}, "cell_match": {}}

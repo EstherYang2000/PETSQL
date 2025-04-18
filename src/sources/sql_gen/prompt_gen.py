@@ -61,7 +61,7 @@ def format_example(example: dict):
 ######################################################
 # Prompt formatting functions
 ######################################################
-def formatting_prompt(sample):
+def formatting_prompt(sample,dataset_type="dev",data_type="spider"):
     """
     預設模式下的 prompt 生成 (不採用schema linking)。
     會動態讀取 sqlite 資料庫，拿前三行數據產生 table schema 提示。
@@ -71,7 +71,14 @@ def formatting_prompt(sample):
     db = sample['db']
 
     # 連接對應的 SQLite DB
-    mydb = sqlite3.connect(f"data/spider/test_database/{db}/{db}.sqlite")
+    if dataset_type == "dev":
+        if data_type == "spider":
+            database = "data/spider/database/"
+        elif data_type == "bird":
+            database = "bird/bird/database/"
+    elif dataset_type == "test":
+        database = "data/spider/test_database/"
+    mydb = sqlite3.connect(f"{database}{db}/{db}.sqlite")
     cur = mydb.cursor()
 
     # 收集所有 table 及其前三行資料
@@ -107,23 +114,39 @@ def formatting_prompt(sample):
     for fk_data in sample["foreign_key"][0].split("\n"):
         fk_info += f'# {fk_data};\n'
     fk_info = fk_info[:-2]  # 移除最後多餘的換行
-
-    prompt = (
-        f"{task_prefix()}\n"
-        "    ### Sqlite SQL tables, with their properties:\n#\n"
-        f"{ddls}#\n"
-        "    # ### Here are some data information about database references.\n"
-        "    # #\n"
-        f"{ddls_data}#\n"
-        "### Foreign key information of Sqlite SQL tables, used for table joins: \n"
-        f"#\n{fk_info}\n#\n"
-        f"### Final Question: {question}\n"
-        "### SQL: "
-    )
+    prompt = ()
+    if data_type == "spider":
+        prompt = (
+            f"{task_prefix()}\n"
+            "    ### Sqlite SQL tables, with their properties:\n#\n"
+            f"{ddls}#\n"
+            "    # ### Here are some data information about database references.\n"
+            "    # #\n"
+            f"{ddls_data}#\n"
+            "### Foreign key information of Sqlite SQL tables, used for table joins: \n"
+            f"#\n{fk_info}\n#\n"
+            f"### Final Question: {question}\n"
+            "### SQL: "
+        )
+    elif data_type == "bird":
+        prompt = (
+            f"{task_prefix()}\n"
+            "    ### Sqlite SQL tables, with their properties:\n#\n"
+            f"{ddls}#\n"
+            "    # ### Here are some data information about database references.\n"
+            "    # #\n"
+            f"{ddls_data}#\n"
+            "### Foreign key information of Sqlite SQL tables, used for table joins: \n"
+            f"#\n{fk_info}\n#\n"
+            "### Here are some external knowledge about the question you can refer to.\n"
+            f"{sample['evidence']}\n"
+            f"### Final Question: {question}\n"
+            "### SQL: "
+        )
 
     return prompt
 
-def formatting_prompt_sl(sample):
+def formatting_prompt_sl(sample,dataset_type="dev",data_type="spider"):
     """
     schema linking 模式下的 prompt 生成。
     只會收集用到的表的 ddls 與前三行資料，並整合 foreign key。
@@ -167,7 +190,14 @@ def formatting_prompt_sl(sample):
     final_ddl = ";\n".join(ddl_sc) + '.'
 
     # (C) 連接資料庫，拿 sc_tables 的前三筆資料
-    mydb = sqlite3.connect(f"data/spider/test_database/{db}/{db}.sqlite")
+    if dataset_type == "dev":
+        if data_type == "spider":
+            database = "data/spider/database/"
+        elif data_type == "bird":
+            database = "bird/bird/database/"
+    elif dataset_type == "test":
+        database = "data/spider/test_database/"
+    mydb = sqlite3.connect(f"{database}{db}/{db}.sqlite")
     cur = mydb.cursor()
 
     simplified_ddl_data = []
@@ -203,42 +233,73 @@ def formatting_prompt_sl(sample):
 
     question = sample['question']
     if fk_info:
-        prompt = (
-            f"{task_prefix()}\n"
-            "### Sqlite SQL tables, with their properties:\n#\n"
-            f"{final_ddl}\n#\n"
-            "# ### Here are some data information about database references.\n"
-            "# #\n"
-            f"{ddls_data}#{fk_info}\n"
-            "# #\n"
-            f"### Final Question: {question}\n"
-            "### SQL: "
-        )
+        if data_type == "spider":
+            prompt = (
+                f"{task_prefix()}\n"
+                "### Sqlite SQL tables, with their properties:\n#\n"
+                f"{final_ddl}\n#\n"
+                "# ### Here are some data information about database references.\n"
+                "# #\n"
+                f"{ddls_data}#{fk_info}\n"
+                "# #\n"
+                f"### Final Question: {question}\n"
+                "### SQL: "
+            )
+        elif data_type == "bird":
+            prompt = (
+                f"{task_prefix()}\n"
+                "### Sqlite SQL tables, with their properties:\n#\n"
+                f"{final_ddl}\n#\n"
+                "# ### Here are some data information about database references.\n"
+                "# #\n"
+                f"{ddls_data}#{fk_info}\n"
+                "# #\n"
+                "### Here are some external knowledge about the question you can refer to.\n"
+                f"{sample['evidence']}\n"
+                f"### Final Question: {question}\n"
+                "### SQL: "
+            )
     else:
-        prompt = (
-            f"{task_prefix()}### Sqlite SQL tables, with their properties:\n#\n"
-            f"{final_ddl}\n#\n"
-            "### Here are some data information about database references.\n#\n"
-            f"{ddls_data}#\n"
-            f"### Final Question: {question}\n"
-            "### SQL: "
-        )
+        if data_type == "spider":
+            prompt = (
+                f"{task_prefix()}\n"
+                "### Sqlite SQL tables, with their properties:\n#\n"
+                f"{final_ddl}\n#\n"
+                "# ### Here are some data information about database references.\n"
+                "# #\n"
+                f"{ddls_data}#\n"
+                f"### Final Question: {question}\n"
+                "### SQL: "
+            )
+        elif data_type == "bird":
+            prompt = (
+                f"{task_prefix()}\n"
+                "### Sqlite SQL tables, with their properties:\n#\n"
+                f"{final_ddl}\n#\n"
+                "# ### Here are some data information about database references.\n"
+                "# #\n"
+                f"{ddls_data}#\n"
+                "### Here are some external knowledge about the question you can refer to.\n"
+                f"{sample['evidence']}\n"
+                f"### Final Question: {question}\n"
+                "### SQL: "
+            )
     return prompt
 
-def prompt_generation(sample,dataset, kshot, select_type, sl, n,path_generate,dataset_type="dev"):
+def prompt_generation(sample,dataset, kshot, select_type, sl, n,path_generate,dataset_type="dev",data_type="spider"):
     # 1) 讀取資料
     if not sl:
-        input_data = gen_ppl_from_json(dataset,dataset_type=dataset_type)
+        input_data = gen_ppl_from_json(dataset,data_type = data_type,dataset_type=dataset_type)
     else:
         with open(args.dataset, 'r', encoding='utf-8') as f:
             input_data = json.load(f)
-
+    print(f"Input data has been loaded from {dataset}")
+    print(f"Input data size: {len(input_data)}")
     if kshot != 0:
         examples_libary = get_examples_ins(select_type)
         print(f"select type: {select_type}, k shot: {kshot}")
     else:
         examples_libary = None
-
     # 2) 依照參數生成 prompt
     all_prompts = []
     prompt_path = os.path.join(path_generate, "prompts.txt")
@@ -247,9 +308,9 @@ def prompt_generation(sample,dataset, kshot, select_type, sl, n,path_generate,da
         for i, sample in enumerate(input_data[:n]):
             # schema linking or not
             if args.sl:
-                prompt_target = formatting_prompt_sl(sample)
+                prompt_target = formatting_prompt_sl(sample,dataset_type,data_type)
             else:
-                prompt_target = formatting_prompt(sample)
+                prompt_target = formatting_prompt(sample,dataset_type,data_type)
 
             # 若要 few-shot
             if examples_libary and kshot != 0:
@@ -277,6 +338,7 @@ if __name__ == '__main__':
     # parser.add_argument("--model", type=str, default="puyuapi") # codellamaapi, puyuapi, llamaapi, sqlcoderapi, vicunaapi, gptapi
     # parser.add_argument("--model_version", type=str, default="none",
     #                 help="Which GPT version to use with gptapi? Options: o1-preview, gpt-4, gpt-4o")
+    parser.add_argument("--data_type", type=str, default="spider")
     parser.add_argument("--dataset", type=str, default="ppl_dev.json")
     parser.add_argument("--dataset_type", type=str, default="dev")
     # parser.add_argument("--out_file", type=str, default="raw.txt")
@@ -289,31 +351,21 @@ if __name__ == '__main__':
     parser.add_argument("--n", type=int, default=5, help="Size of self-consistent set") # 自洽集的大小
     # 解析命令行参数
     args = parser.parse_args()
-    # Construct the log directory and file path
-    # log_dir = os.path.join(os.path.dirname(__file__), "logs")
-    # print(log_dir)
-    # log_file_path = os.path.join(log_dir, f"{args.dataset.upper()}-{args.kshot}_SHOT_{args.select_type}_{args.n}.log")
-    # print(log_file_path)
-    # # Create the logs directory if it does not exist
-    # if not os.path.exists(log_dir):
-    #     os.makedirs(log_dir)
-    
-    # logging.basicConfig(filename=log_file_path,
-    #                     level=logging.INFO,
-    #                     filemode='w')
-    # logger = logging.getLogger()
     print("dataset_type: ", args.dataset_type)
     if args.sl == False:
-        input_data = gen_ppl_from_json(args.dataset,dataset_type=args.dataset_type)
+        input_data = gen_ppl_from_json(args.dataset,data_type = args.data_type,dataset_type=args.dataset_type)
     else:
         input_data = json.load(open(args.dataset, 'r'))
-    path_generate = f"data/process/{args.dataset.upper()}-{args.kshot}_SHOT_{args.select_type}_{args.n}"
+    if args.data_type == "spider":
+        path_generate = f"data/process/{args.dataset.upper()}-{args.kshot}_SHOT_{args.select_type}_{args.n}"
+    else:
+        path_generate = f"bird/process/{args.data_type}/{args.dataset.upper()}-{args.kshot}_SHOT_{args.select_type}_{args.n}"
     os.makedirs(path_generate, exist_ok=True)
     json.dump(input_data, open(os.path.join(path_generate, "questions.json"), "w"), indent=4)
     print(f"Input data has been saved to {path_generate}")
     print("schema linking: ", args.sl)
     print(args.dataset)
-    prompt_generation(input_data, args.dataset,args.kshot, args.select_type, args.sl, args.n,path_generate,args.dataset_type)
+    prompt_generation(input_data, args.dataset,args.kshot, args.select_type, args.sl, args.n,path_generate,args.dataset_type,args.data_type)
 
 """
 python src/sources/sql_gen/prompt_gen.py \
@@ -322,6 +374,15 @@ python src/sources/sql_gen/prompt_gen.py \
   --n 1034 \
   --kshot 9 \
   --select_type Euclidean_mask \
+      
+python src/sources/sql_gen/prompt_gen.py \
+  --data_type bird \
+  --dataset ppl_dev_bird.json \
+  --dataset_type dev \
+  --n 1034 \
+  --kshot 9 \
+  --select_type Euclidean_mask      
+
 """
     
 

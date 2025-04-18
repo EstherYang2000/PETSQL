@@ -37,7 +37,7 @@ def extract_tab_from_sql(item, sample):
 
 if __name__ == '__main__':
     if args.dataset_type == 'dev':
-        input_data = json.load(open("./ppl_dev.json", 'r'))
+        input_data = json.load(open("./ppl_dev_bird.json", 'r'))
     else:
         input_data = json.load(open("./ppl_test.json", 'r'))
     file_path = os.path.dirname(__file__)

@@ -1,6 +1,6 @@
 import sqlparse
 from post_process import extract_sql
-from llms import OllamaChat, GPT, GroqChat,TogetherChat,ClaudeChat,GoogleGeminiChat
+from llms import OllamaChat, GPT, GroqChat,TogetherChat,ClaudeChat,GoogleGeminiChat,GrokChat
 from time import sleep
 from tqdm import tqdm
 import json
@@ -44,7 +44,6 @@ def run_sql_generation(model,
                        n_samples=5,
                        question_index=None
                        ):
-    
     # 2) 初始化對應 model (根據 model 參數)
     llm_instance = None
     if model == "codellamaapi":
@@ -80,6 +79,9 @@ def run_sql_generation(model,
             api_key = os.environ["GROQ_API_KEY"]
             llm_instance = GroqChat(api_key=api_key,model="llama3.3:latest")
         # llm_instance = Llama2(model_name="ruslanmv/Meta-Llama-3.1-8B-Text-to-SQL", max_memory={"cpu": "4GiB", 0: "22GiB"})
+    elif model =='grokapi':
+        api_key = os.environ["GROK_API_KEY"]
+        llm_instance = GrokChat(model=model_version, api_key=api_key)
     elif model == "gptapi":
         llm_instance = GPT(model=model_version)
     elif model == "claudeaapi":
@@ -87,7 +89,7 @@ def run_sql_generation(model,
         llm_instance = ClaudeChat(api_key=api_key)
     elif model == "googlegeminiapi":
         api_key = os.environ["GOOGLE_API_KEY"]
-        llm_instance = GoogleGeminiChat(api_key=api_key)
+        llm_instance = GoogleGeminiChat(api_key=api_key, model_name="models/gemini-2.5-pro-preview-03-25")
     elif model == "deepseekapi":
         if model_version == "v2-16b":
             llm_instance = OllamaChat(model="deepseek-coder-v2:16b")
@@ -115,16 +117,16 @@ def run_sql_generation(model,
     print(f"Loaded model = {model}")
     print(f"Processing {len(prompts)} prompts...")
     print(f"Batch size: {batch_size}")
+    print(f"Number of samples: {n_samples}")
     # 3) 產生結果
     results = []
-    
     if llm_instance:
         # 有自訂 generate_batch
         if hasattr(llm_instance, "generate_batch"):
-
+            print(f"Using batch processing for {model}...")
             for i in tqdm(range(0, len(prompts), batch_size), desc="Processing Batches"):
                 batch = prompts[i:i + batch_size]
-                if model in["deepseekapi" ,"codellamaapi" , "llamaapi" , "phind-codellamaapi" , "qwen_api" ,"mistralapi","claudeaapi","googlegeminiapi"]:
+                if model in["deepseekapi" ,"codellamaapi" , "llamaapi" , "phind-codellamaapi" , "qwen_api" ,"mistralapi","claudeaapi","googlegeminiapi","grokapi"]:
                     if n_samples == 1:
                         batch_responses = llm_instance.generate_batch(batch)
                     else:
@@ -133,26 +135,33 @@ def run_sql_generation(model,
                         batch_responses.extend(llm_instance.generate_batch(batch*n_samples))
                 elif model == "gptapi":
                     if n_samples == 1:
-                        batch_responses = llm_instance.generate_batch(
-                            batch,
-                            temperature=0.7,
-                            top_p=0.9,
-                            max_new_tokens=2048,
-                            repetition_penalty=1.05,
-                            do_sample=True
-                        )
-                        print(f"Batch responses: {batch_responses}")
-                        print(len(batch_responses))
+                        if model_version == "o3-mini":
+                            batch_responses = llm_instance.generate_batch(
+                                batch,
+                                # max_new_tokens=2048,
+                                # repetition_penalty=1.05,
+                                # do_sample=True
+                            )
+                        else:
+                            batch_responses = llm_instance.generate_batch(
+                                batch,
+                                temperature=0.7,
+                                top_p=0.9,
+                                # max_new_tokens=2048,
+                                # repetition_penalty=1.05,
+                                # do_sample=True
+                            )
                     else:
+                        print("n_samples" + str(n_samples))
                         batch_responses = []
                         # for _ in range(n_samples):
                         batch_responses.extend(llm_instance.generate_batch(
                             batch*n_samples,
                             temperature=0.2,
                             top_p=0.9,
-                            max_new_tokens=2048,
-                            repetition_penalty=1.05,
-                            do_sample=True
+                            # max_new_tokens=2048,
+                            # repetition_penalty=1.05,
+                            # do_sample=True
                             ))                        
                 results.append(batch_responses)
                 sleep(1)

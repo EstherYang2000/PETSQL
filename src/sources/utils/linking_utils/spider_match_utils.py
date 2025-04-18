@@ -1,7 +1,8 @@
 import re
 import string
 import collections
-
+import numpy as np
+import torch
 import nltk.corpus
 
 STOPWORDS = set(nltk.corpus.stopwords.words('english'))
@@ -45,8 +46,8 @@ def compute_schema_linking(question, column, table):
         if col_id == 0: # Skip the first column (usually reserved for the row ID)
             continue
         col_id2list[col_id] = col_item  # Map each column ID to its column name
-    print("-----------------col_id2list-----------------")
-    print(col_id2list)
+    # print("-----------------col_id2list-----------------")
+    # print(col_id2list)
     """
     {1: ['stadium', 'id'], 2: ['location'], 3: ['name'], 4: ['capacity'], 5: ['high'], 6: ['low'], 7: ['average'], 8: ['singer', 'id'], 9: ['name'], 10: ['country'], 11: ['song', 'name'], 12: ['song', 'release', 'year'], 13: ['age'], 14: ['be', 'male'], 15: ['concert', 'id'], 16: ['concert', 'name'], 17: ['theme'], 18: ['stadium', 'id'], 19: ['year'], 20: ['concert', 'id'], 21: ['singer', 'id']}
     """
@@ -54,8 +55,8 @@ def compute_schema_linking(question, column, table):
     tab_id2list = dict()
     for tab_id, tab_item in enumerate(table):
         tab_id2list[tab_id] = tab_item # Map each table ID to its table name
-    print("-----------------tab_id2list-----------------")
-    print(tab_id2list)
+    # print("-----------------tab_id2list-----------------")
+    # print(tab_id2list)
     """
     {0: ['stadium'], 1: ['singer'], 2: ['concert'], 3: ['singer', 'in', 'concert']}
     """
@@ -209,6 +210,128 @@ def compute_cell_value_linking(tokens, schema):
 
     cv_link = {"num_date_match": num_date_match, "cell_match": cell_match}
     return cv_link
+
+def compute_schema_linking_gpu(question, column, table):
+    """
+    Compute schema linking using GPU-accelerated similarity calculations.
+    Matches question n-grams with column and table names using embeddings.
+    
+    Args:
+        question (list): List of question tokens.
+        column (list): List of column names (each a list of tokens).
+        table (list): List of table names (each a list of tokens).
+        word_emb (GloVe): GloVe object for accessing word embeddings.
+        device (str): Device to use for computations ('cuda' or 'cpu').
+    
+    Returns:
+        dict: Dictionary with 'q_col_match' and 'q_tab_match' mappings.
+    """
+    question_tensor = torch.tensor([hash(token) for token in question], device='cuda')
+    q_col_match = {}
+    q_tab_match = {}
+
+    col_id2list = {col_id: " ".join(col_item) for col_id, col_item in enumerate(column) if col_id != 0}
+    tab_id2list = {tab_id: " ".join(tab_item) for tab_id, tab_item in enumerate(table)}
+
+    def match_tensor(n_gram_tensor, schema_dict):
+        matches = []
+        for schema_id, schema_str in schema_dict.items():
+            schema_tensor = torch.tensor([hash(token) for token in schema_str.split()], device='cuda')
+            if torch.equal(n_gram_tensor, schema_tensor):
+                matches.append((schema_id, True))
+            elif torch.any(torch.isin(n_gram_tensor, schema_tensor)):
+                matches.append((schema_id, False))
+        return matches
+
+    n = 5
+    while n > 0:
+        for i in range(len(question) - n + 1):
+            n_gram_list = question[i:i + n]
+            n_gram_str = " ".join(n_gram_list).strip()
+            if len(n_gram_str) == 0 or n_gram_str in STOPWORDS or n_gram_str in PUNKS:
+                continue
+
+            n_gram_tensor = question_tensor[i:i + n]
+
+            col_matches = match_tensor(n_gram_tensor, col_id2list)
+            for col_id, is_exact in col_matches:
+                for q_id in range(i, i + n):
+                    key = f"{q_id},{col_id}"
+                    if is_exact:
+                        q_col_match[key] = COL_EXACT_MATCH_FLAG
+                    elif key not in q_col_match:
+                        q_col_match[key] = COL_PARTIAL_MATCH_FLAG
+
+            tab_matches = match_tensor(n_gram_tensor, tab_id2list)
+            for tab_id, is_exact in tab_matches:
+                for q_id in range(i, i + n):
+                    key = f"{q_id},{tab_id}"
+                    if is_exact:
+                        q_tab_match[key] = TAB_EXACT_MATCH_FLAG
+                    elif key not in q_tab_match:
+                        q_tab_match[key] = TAB_PARTIAL_MATCH_FLAG
+
+        n -= 1
+
+    return {"q_col_match": q_col_match, "q_tab_match": q_tab_match}
+
+def compute_cell_value_linking_gpu(tokens, schema):
+    tokens_tensor = torch.tensor([hash(token) for token in tokens], device='cuda')
+    num_date_match = {}
+    cell_match = {}
+
+    def isnumber(word):
+        try:
+            float(word)
+            return True
+        except:
+            return False
+
+    def db_word_match(word, column, table, db_conn, exact=True):
+        cursor = db_conn.cursor()
+        word = word.replace("'", "''")  # Escape single quotes
+        like_str = f"{word}" if exact else f"%{word}%"
+        query = f"SELECT {column} FROM {table} WHERE {column} LIKE '{like_str}'"
+        try:
+            cursor.execute(query)
+            return cursor.fetchall()
+        except:
+            return False
+
+    for col_id, column in enumerate(schema.columns):
+        if col_id == 0 or column.orig_name == "*":
+            continue
+
+        match_q_ids = []
+
+        for q_id, word in enumerate(tokens):
+            if word.strip() in STOPWORDS or word.strip() in PUNKS:
+                continue
+
+            if isnumber(word):
+                if column.type in ["number", "time"]:
+                    num_date_match[f"{q_id},{col_id}"] = column.type.upper()
+            else:
+                partial_res = db_word_match(word, column.orig_name, column.table.orig_name, schema.connection, exact=False)
+                if partial_res:
+                    match_q_ids.append(q_id)
+
+        f = 0
+        while f < len(match_q_ids):
+            t = f + 1
+            while t < len(match_q_ids) and match_q_ids[t] == match_q_ids[t - 1] + 1:
+                t += 1
+            q_f, q_t = match_q_ids[f], match_q_ids[t - 1] + 1
+            phrase = ' '.join(tokens[q_f:q_t])
+            exact_res = db_word_match(phrase, column.orig_name, column.table.orig_name, schema.connection, exact=True)
+
+            for q_id in range(q_f, q_t):
+                key = f"{q_id},{col_id}"
+                cell_match[key] = CELL_EXACT_MATCH_FLAG if exact_res else CELL_PARTIAL_MATCH_FLAG
+
+            f = t
+
+    return {"num_date_match": num_date_match, "cell_match": cell_match}
 
 
 def match_shift(q_col_match, q_tab_match, cell_match):

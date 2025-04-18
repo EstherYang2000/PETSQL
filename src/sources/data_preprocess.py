@@ -12,7 +12,7 @@ from utils.linking_process import SpiderEncoderV2Preproc
 from utils.pretrained_embeddings import GloVe
 from utils.datasets.spider import load_tables, Schema
 # from dataset.process.preprocess_kaggle import gather_questions
-
+import torch
 
 def schema_linking_producer(test, train, table, db, dataset_dir, compute_cv_link=True):
 
@@ -43,7 +43,8 @@ def schema_linking_producer(test, train, table, db, dataset_dir, compute_cv_link
             word_emb=word_emb,
             fix_issue_16_primary_keys=True,
             compute_sc_link=True,
-            compute_cv_link=compute_cv_link)
+            compute_cv_link=compute_cv_link,
+            device='cuda' if torch.cuda.is_available() else 'cpu'  )
 
     # build schema-linking
     print("Build test schema-linking ...")
@@ -117,13 +118,13 @@ def bird_pre_process(bird_dir, with_evidence=False):
 proj_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
 
-def add_fk(ppl_test, dataset_type='dev'):
-    if dataset_type == 'dev':
+def add_fk(ppl_test, data_type = "spider",dataset_type='dev'):
+    if dataset_type == 'dev' or 'train':
         tables_data = json.load(
-            open("data/spider/tables.json", 'r', encoding='utf-8'))
+            open("data/spider/tables.json" if data_type == "spider" else "bird/bird/tables.json", 'r', encoding='utf-8'))
     elif dataset_type == 'test':
         tables_data = json.load(
-            open("data/spider/test_tables.json", 'r', encoding='utf-8'))
+            open("data/spider/test_tables.json" if data_type == "spider" else "bird/bird/test_tables.json", 'r', encoding='utf-8'))
         
     forekeys = {}
     anno_simddl = {}
@@ -169,17 +170,24 @@ def add_fk(ppl_test, dataset_type='dev'):
 
 
 
-def gen_ppl_from_json(ppl_filename='data/ppl_dev.json',dataset_type='dev'):
+def gen_ppl_from_json(ppl_filename='data/ppl_dev.json',data_type = "spider",dataset_type='dev'):
     # Load database table information and development dataset
     print("Loading data...")
     print(proj_dir)
-    print("data_type:", dataset_type)
+    print("data_type:", data_type)
+    print("dataset_type:", dataset_type)
     if dataset_type == 'dev':
         print("Loading dev data...")
         tables_data = json.load(
-            open(proj_dir + "/data/spider/tables.json", 'r', encoding='utf-8'))
+            open(proj_dir + "/data/spider/tables.json" if data_type == "spider" else "bird/bird/tables.json", 'r', encoding='utf-8'))
         dev_data = json.load(
-            open(proj_dir + "/data/spider/dev.json", 'r', encoding='utf-8'))
+            open(proj_dir + "/data/spider/dev.json" if data_type == "spider" else "bird/bird/dev.json", 'r', encoding='utf-8'))
+    elif dataset_type == 'train':
+        print("Loading train data...")
+        tables_data = json.load(
+            open(proj_dir + "/data/spider/tables.json" if data_type == "spider" else "bird/bird/tables.json", 'r', encoding='utf-8'))
+        dev_data = json.load(
+            open(proj_dir + "/data/spider/dev.json" if data_type == "spider" else "bird/bird/train.json", 'r', encoding='utf-8'))
     elif dataset_type == 'test':
         print("Loading test data...")
         tables_data = json.load(
@@ -197,7 +205,6 @@ def gen_ppl_from_json(ppl_filename='data/ppl_dev.json',dataset_type='dev'):
             "question": it['question'],
             "gold_sql": it['query']
         })
-
     # Initialize dictionaries to store simplified and full DDL (Data Definition Language) annotations
     anno_simddl = {}
     anno = {}
@@ -265,7 +272,15 @@ def gen_ppl_from_json(ppl_filename='data/ppl_dev.json',dataset_type='dev'):
             anno_simddl[ppl_test[i]["db"]]) + ".\n"
         ppl_test[i]['full_ddl'] = "\n".join(anno[ppl_test[i]["db"]]) + '\n'
     # Add foreign key information (assuming add_fk is a function that does this)
-    ppl_test = add_fk(ppl_test, dataset_type)
+    ppl_test = add_fk(ppl_test, data_type,dataset_type)
+    
+    if data_type == "bird":
+        # Add evidence information to each entry in ppl_test
+        for i in range(len(ppl_test)):
+            if 'evidence' in dev_data[i]:
+                ppl_test[i]['evidence'] = dev_data[i]['evidence']
+            else:
+                ppl_test[i]['evidence'] = []
     # Save the final data to a JSON file
     json.dump(ppl_test,
               open(ppl_filename, 'w', encoding='utf-8'),
