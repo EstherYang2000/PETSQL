@@ -2,7 +2,7 @@ import sys
 import argparse
 import multiprocessing as mp
 from func_timeout import func_timeout, FunctionTimedOut
-from .evaluation_utils import (
+from evaluation_utils import (
     load_jsonl,
     load_json,
     execute_sql,

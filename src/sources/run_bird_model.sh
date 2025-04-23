@@ -89,11 +89,11 @@ python src/sources/sql_gen/call_llm.py \
     --path_generate bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base \
     --model googlegeminiapi \
     --model_version gemini-2.5-pro-exp-03-25 \
-    --out_file googlegeminiapi_gemini-2.5-pro-exp-03-25.json \
+    --out_file googlegeminiapi_gemini-2.5-pro-exp-03-25_1.json \
     --data_type bird \
     --dataset_type dev \
-    --start_num_prompts 998 \
-    --end_num_prompts 1534 \
+    --start_num_prompts 994 \
+    --end_num_prompts 996 \
     --batch_size 1 \
     --call_mode append \
     --n_samples 1

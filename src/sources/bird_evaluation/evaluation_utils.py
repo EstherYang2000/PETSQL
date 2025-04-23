@@ -56,6 +56,8 @@ def connect_db(sql_dialect, db_path):
 
 def execute_sql(predicted_sql, ground_truth, db_path, sql_dialect, calculate_func):
     try:
+        print(f"Executing predicted_sql: {predicted_sql}")
+        print(f"Executing ground_truth: {ground_truth}")
         conn = connect_db(sql_dialect, db_path)
         # Connect to the database
         cursor = conn.cursor()

@@ -95,7 +95,7 @@ python src/sources/extract_sql_output.py \
 
 python src/sources/evaluation.py \
     --gold ./data/spider/test_gold.sql  \
-    --pred data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1.txt \
+    --pred data/process/vote/202504/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_rwma/final_sql_1.txt \
     --etype all \
     --db ./data/spider/test_database \
-    --table ./data/spider/test_tables.json > output.txt
+    --table ./data/spider/test_tables.json

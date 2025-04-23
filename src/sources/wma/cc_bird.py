@@ -243,16 +243,16 @@ if __name__ == "__main__":
 # Step 1: 第一輪 SQL 生成 + WMA
 # echo "## Start first round SQL generation with WMA ..."
 python src/sources/wma/cc_bird.py \
-    --path_generate bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_rf_rwma \
+    --path_generate bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_rf_naive \
     --gold ./bird/bird/dev.sql \
-    --start_num_prompts 1000 \
-    --end_num_prompts 1534 \
+    --start_num_prompts 845 \
+    --end_num_prompts 846 \
     --n_samples 1 \
     --dataset_type dev \
     --call_mode append \
     --refinement \
     --rounds 1 \
-    --experts gemini
+    --experts grok3
 
     
 python src/sources/bird_evaluation/process_sql.py \
@@ -261,14 +261,14 @@ python src/sources/bird_evaluation/process_sql.py \
     --type rf
 
 python src/sources/bird_evaluation/evaluation.py \
-    --predicted_sql_path bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534/final_result_1_output_eval_googlegeminiapi_gemini-2.5-pro-exp-03-25_cc.json \
+    --predicted_sql_path bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_rwma/final_result_1_output_eval.json \
     --ground_truth_path bird/bird/dev.sql \
     --db_root_path bird/bird/database/ \
     --num_cpus 4 \
     --meta_time_out 30 \
     --diff_json_path bird/bird/dev.json \
     --sql_dialect SQLite \
-    --output_log_path bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534/evaluation_log.txt    
+    --output_log_path bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_rwma//evaluation_log.txt    
     
     
     

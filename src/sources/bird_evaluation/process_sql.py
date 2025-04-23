@@ -44,8 +44,8 @@
 import json
 
 # Input and output file paths
-input_txt_file = "bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534/final_sql_1_googlegeminiapi_gemini-2.5-pro-exp-03-25_cc.txt"
-output_json_file = "bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534/final_result_1_output_eval_googlegeminiapi_gemini-2.5-pro-exp-03-25_cc.json"
+input_txt_file = "bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_rwma/final_sql_1.txt"
+output_json_file = "bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_rwma/final_result_1_output_eval.json"
 
 # Read the .txt file and process it into a list
 with open(input_txt_file, 'r', encoding='utf-8') as f:

@@ -476,6 +476,10 @@ def print_scores(scores, etype):
 
 
 def evaluate(gold, predict, db_dir, etype, kmaps,nums=1034):
+    
+    count = 0
+    idx = 0
+    result = []
     with open(gold) as f:
         glist = [l.strip().split('\t') for l in f.readlines() if len(l.strip()) > 0]
 
@@ -551,7 +555,12 @@ def evaluate(gold, predict, db_dir, etype, kmaps,nums=1034):
             if exec_score:
                 scores[hardness]['exec'] += 1.0
                 scores['all']['exec'] += 1.0
-
+        if exec_score == 0:
+                # save the result
+                count += 1
+        
+        result.append({idx:count})
+        idx += 1
         if etype in ["all", "match"]:
             exact_score = evaluator.eval_exact_match(p_sql, g_sql)
             partial_scores = evaluator.partial_scores
@@ -561,6 +570,7 @@ def evaluate(gold, predict, db_dir, etype, kmaps,nums=1034):
                 print("")
             scores[hardness]['exact'] += exact_score
             scores['all']['exact'] += exact_score
+            
             for type_ in partial_types:
                 if partial_scores[type_]['pred_total'] > 0:
                     scores[hardness]['partial'][type_]['acc'] += partial_scores[type_]['acc']
@@ -611,6 +621,8 @@ def evaluate(gold, predict, db_dir, etype, kmaps,nums=1034):
                         2.0 * scores[level]['partial'][type_]['acc'] * scores[level]['partial'][type_]['rec'] / (
                         scores[level]['partial'][type_]['rec'] + scores[level]['partial'][type_]['acc'])
 
+    with open("data/process/vote/202504/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_base_naive/current_error.json", "w") as f:
+        json.dump(result, f)
     print_scores(scores, etype)
     
 def evaluate_all_value(gold, predict, db_dir, etype, kmaps):
@@ -758,7 +770,7 @@ def evaluate_cc(gold, predict, db_dir, etype, kmaps):
     levels = ['easy', 'medium', 'hard', 'extra', 'all']
     entries = []
 
-    all_correct = True  # Track if all predictions are correct
+    all_correct = False  # Track if all predictions are correct
 
     for p, g in zip([predict], [gold]):
         p_str = p[0]
@@ -786,20 +798,9 @@ def evaluate_cc(gold, predict, db_dir, etype, kmaps):
 
         if etype in ["all", "exec"]:
             exec_score = eval_exec_match(db, p_str, g_str, p_sql, g_sql)
-            if not exec_score:
-                all_correct = False
+            if exec_score:
+                all_correct = True
 
-        if etype in ["all", "match"]:
-            exact_score = evaluator.eval_exact_match(p_sql, g_sql)
-            # print("exact_score:{}".format(exact_score))
-            if exact_score == 0:
-                all_correct = False
-
-            entries.append({
-                'predictSQL': p_str,
-                'goldSQL': g_str,
-                'exact': exact_score,
-            })
 
     return all_correct
 

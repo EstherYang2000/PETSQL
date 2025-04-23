@@ -54,7 +54,7 @@ python src/sources/post_process.py \
 
 python src/sources/evaluation.py \
     --gold ./data/spider/dev_gold.sql  \
-    --pred data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034/gptapi_chatgpt-4o-latest_output.txt \
+    --pred data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_qwen_72b/qwen_api_2_5_72b_output.txt \
     --etype all \
     --db ./data/spider/database \
     --table ./data/spider/tables.json \
@@ -84,34 +84,34 @@ python src/sources/sql_gen/prompt_gen.py \
     --sl
 # # echo "## Start 2nd calling LLM ..."
 python src/sources/sql_gen/call_llm.py \
-    --path_generate data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034 \
-    --model llamaapi \
-    --model_version 3.3 \
-    --out_file llamaapi_3.3.json \
+    --path_generate data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_qwen_72b \
+    --model qwen_api \
+    --model_version 2_5_72b \
+    --out_file qwen_api_2_5_72b.json \
     --dataset_type dev \
-    --start_num_prompts 0 \
+    --start_num_prompts 1 \
     --end_num_prompts 1034 \
     --batch_size 1 \
     --call_mode append \
-    --n_samples 5
+    --n_samples 1
 
 
 python src/sources/post_process.py \
-    --file data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/llamaapi_3.3.json \
-    --output data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/llamaapi_3.3_output.json  \
+    --file data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_qwen_72b/qwen_api_2_5_72b.json \
+    --output data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_qwen_72b/qwen_api_2_5_72b_output.json  \
     --llm sensechat
 
 python src/sources/extract_sql_output.py \
-    --file data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/googlegeminiapi_gemini-2.5-pro-exp-03-25_output.json \
-    --output data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/googlegeminiapi_gemini-2.5-pro-exp-03-25_output.txt
+    --file data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_qwen_72b/qwen_api_2_5_72b_output.json \
+    --output data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_qwen_72b/qwen_api_2_5_72b_output.txt
 
-# python src/sources/evaluation.py \
-#     --gold ./data/spider/dev_gold.sql  \
-#     --pred data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034/googlegeminiapi_gemini-2.5-pro-exp-03-25_output.txt \
-#     --etype all \
-#     --db ./data/spider/database \
-#     --table ./data/spider/tables.json \
-#     --num 1034 > output.txt
+python src/sources/evaluation.py \
+    --gold ./data/spider/dev_gold.sql  \
+    --pred data/process/vote/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_rwma/final_sql_1.txt\
+    --etype all \
+    --db ./data/spider/database \
+    --table ./data/spider/tables.json \
+    --num 1034
 
 
 # python src/sources/evaluation.py \
