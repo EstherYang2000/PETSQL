@@ -54,7 +54,7 @@ python src/sources/post_process.py \
 
 python src/sources/evaluation.py \
     --gold ./data/spider/dev_gold.sql  \
-    --pred data/process/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_qwen_72b/qwen_api_2_5_72b_output.txt \
+    --pred data/vote/rl/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_base_rl/final_sql_rl.txt \
     --etype all \
     --db ./data/spider/database \
     --table ./data/spider/tables.json \

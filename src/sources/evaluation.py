@@ -621,7 +621,7 @@ def evaluate(gold, predict, db_dir, etype, kmaps,nums=1034):
                         2.0 * scores[level]['partial'][type_]['acc'] * scores[level]['partial'][type_]['rec'] / (
                         scores[level]['partial'][type_]['rec'] + scores[level]['partial'][type_]['acc'])
 
-    with open("data/process/vote/202504/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_base_naive/current_error.json", "w") as f:
+    with open("data/vote/rl/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_base_rl/current_error.json", "w") as f:
         json.dump(result, f)
     print_scores(scores, etype)
     
@@ -804,7 +804,33 @@ def evaluate_cc(gold, predict, db_dir, etype, kmaps):
 
     return all_correct
 
-
+def evaluate_partial(gold, pred, db_dir, kmaps):
+    # gold, pred: (sql, db)
+    g_str, db = gold
+    p_str = pred[0]
+    db_name = db
+    db = os.path.join(db_dir, db, db + ".sqlite")
+    schema = Schema(get_schema(db))
+    g_sql = get_sql(schema, g_str)
+    try:
+        p_sql = get_sql(schema, p_str)
+    except Exception as e:
+        # 給一個空 sql
+        p_sql = {
+            "except": None, "from": {"conds": [], "table_units": []}, "groupBy": [],
+            "having": [], "intersect": None, "limit": None, "orderBy": [], "select": [False, []],
+            "union": None, "where": []
+        }
+    kmap = kmaps[db_name]
+    g_valid_col_units = build_valid_col_units(g_sql['from']['table_units'], schema)
+    g_sql = rebuild_sql_val(g_sql)
+    g_sql = rebuild_sql_col(g_valid_col_units, g_sql, kmap)
+    p_valid_col_units = build_valid_col_units(p_sql['from']['table_units'], schema)
+    p_sql = rebuild_sql_val(p_sql)
+    p_sql = rebuild_sql_col(p_valid_col_units, p_sql, kmap)
+    evaluator = Evaluator()
+    partial_scores = evaluator.eval_partial_match(p_sql, g_sql)
+    return partial_scores
 def eval_exec_match(db, p_str, g_str, pred, gold):
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
