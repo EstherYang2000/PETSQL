@@ -54,37 +54,54 @@ class WeightedMajorityAlgorithm:
         self.epsilon = epsilon      # 衰減比例
         self.mistake_counter = {name: 0 for name in experts}
 
-    def add_expert(self, expert_name: str, init_weight: float = 1.0,init_mistake_counter: int = 0):
+    def add_expert(self, expert_name: str, init_weight: float = 1.0, init_mistake_counter: int = 0):
         """
         Add a new expert to the algorithm with an initial weight.
         
         Args:
             expert_name (str): Name/identifier of the expert
             init_weight (float): Initial weight for the expert (default: 1.0)
+            init_mistake_counter (int): Initial mistake count for the expert (default: 0)
         """
         if expert_name not in self.experts:
             self.experts[expert_name] = init_weight
             self.mistake_counter[expert_name] = init_mistake_counter
-    
 
-    def update_weights(self, expert_name: str, is_correct: bool,strategy="wma"):
+    def reset_mistake_counts(self):
+        """重置所有專家的錯誤計數"""
+        self.mistake_counter = {name: 0 for name in self.experts}
+
+    def update_mistake_count(self, expert_name: str):
+        """只更新錯誤計數，不更新權重"""
+        if expert_name not in self.experts:
+            raise ValueError(f"Expert '{expert_name}' not found in the algorithm")
+        self.mistake_counter[expert_name] += 1
+
+    def update_weights(self, expert_name: str, is_correct: bool, strategy="wma"):
         """
         Update the weight of a single expert based on their prediction correctness.
         
         Args:
             expert_name (str): The name of the expert whose weight should be updated
             is_correct (bool): Whether the expert's prediction was correct
+            strategy (str): The strategy to use for updating weights ("wma", "rwma", "naive", "rl")
         """
         if expert_name not in self.experts:
             raise ValueError(f"Expert '{expert_name}' not found in the algorithm")
 
-        if not is_correct and strategy != "naive":
-            # Only decrease weight if the prediction was incorrect
-            old_weight = self.experts[expert_name]
-            self.experts[expert_name] = old_weight * (1 - self.epsilon)
-            self.mistake_counter[expert_name] += 1
-        elif not is_correct and strategy == "naive":
-            self.mistake_counter[expert_name] += 1
+        if strategy == "wma" or strategy == "rwma":
+            if not is_correct:
+                # 更新權重
+                old_weight = self.experts[expert_name]
+                self.experts[expert_name] = old_weight * (1 - self.epsilon)
+                # 更新錯誤計數
+                self.mistake_counter[expert_name] += 1
+        elif strategy == "naive":
+            # 只記錄錯誤，不更新權重
+            if not is_correct:
+                self.mistake_counter[expert_name] += 1
+        # 對於 "rl" 策略，不更新權重也不更新錯誤計數
+
     def get_mistake_counts(self):
         """
         回傳所有專家的錯誤次數。
@@ -115,15 +132,14 @@ class WeightedMajorityAlgorithm:
             return None, [], 0.0
         
         # Accumulate weights for each SQL
-        for expert_name, sql_list in predictions_dict.items():
+        for expert_name, sql_str in predictions_dict.items():
             expert_weight = self.experts.get(expert_name, 1.0)
             # 每條候選SQL都獲得該專家的全部權重 (Group Voting)
-            for sql_str in sql_list:
-                if sql_str not in sql_to_weight:
-                    sql_to_weight[sql_str] = 0.0
-                    sql_to_experts[sql_str] = []
-                sql_to_weight[sql_str] += expert_weight
-                sql_to_experts[sql_str].append(expert_name)
+            if sql_str not in sql_to_weight:
+                sql_to_weight[sql_str] = 0.0
+                sql_to_experts[sql_str] = []
+            sql_to_weight[sql_str] += expert_weight
+            sql_to_experts[sql_str].append(expert_name)
         # If no valid SQLs were added, return a safe fallback
         if not sql_to_weight:
             logger.error("No valid SQLs received from experts.")
@@ -135,7 +151,6 @@ class WeightedMajorityAlgorithm:
 
         return best_sql, chosen_experts, best_weight
 
-    
     def randomized_weighted_majority_vote(self, predictions_dict):
         """
         Randomized version: draw a SQL according to expert weights.
@@ -160,11 +175,11 @@ class WeightedMajorityAlgorithm:
         )[0]
 
         # 3. From that expert, randomly select one SQL (or top-1)
-        sql_list = predictions_dict[selected_expert]
-        if not sql_list:
+        final_sql = predictions_dict[selected_expert]
+        if not final_sql:
             logger.warning(f"Selected expert {selected_expert} has no predictions.")
             return None, [], 0.0
-        final_sql = random.choice(sql_list)
+        # final_sql = random.choice(sql_list)
 
         return final_sql, [selected_expert], self.experts[selected_expert]
     
@@ -176,6 +191,7 @@ class WeightedMajorityAlgorithm:
             dict: Dictionary mapping expert names to their current weights
         """
         return self.experts.copy()
+
     def get_expert_weight(self, expert_name: str) -> float:
         """
         Get the current weight of a specific expert.
@@ -187,7 +203,7 @@ class WeightedMajorityAlgorithm:
             float: Current weight of the expert
             
         Raises:
-            ValueError: If expert_name is not found
+            ValueError: If expert not found
         """
         if expert_name not in self.experts:
             raise ValueError(f"Expert '{expert_name}' not found in the algorithm")

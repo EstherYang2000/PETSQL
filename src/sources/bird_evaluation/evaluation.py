@@ -1,8 +1,9 @@
 import sys
 import argparse
 import multiprocessing as mp
+import json
 from func_timeout import func_timeout, FunctionTimedOut
-from evaluation_utils import (
+from bird_evaluation.evaluation_utils import (
     load_jsonl,
     load_json,
     execute_sql,
@@ -11,9 +12,28 @@ from evaluation_utils import (
     print_data,
 )
 
+# Global variables
+exec_result = []
+progress_lock = mp.Lock()
+progress = {
+    "error_counts": [],  # Will store list of {round: cumulative_error_count}
+    "total_errors": 0    # Keep track of total errors
+}
 
 def result_callback(result):
+    global exec_result, progress
     exec_result.append(result)
+    
+    with progress_lock:
+        current_round = len(exec_result)
+        if result["res"] == 0:  # If error
+            progress["total_errors"] += 1
+            
+        progress["error_counts"].append({str(current_round-1): progress["total_errors"]})
+        
+        path = "bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_naive_8"
+        with open(f"{path}/current_error.json", "w") as f:
+            json.dump(progress["error_counts"], f, indent=2)
 
 
 def calculate_ex(predicted_res, ground_truth_res):
@@ -49,7 +69,6 @@ def run_sqls_parallel(
 ):
     pool = mp.Pool(processes=num_cpus)
     for i, sql_pair in enumerate(sqls):
-
         predicted_sql, ground_truth = sql_pair
         pool.apply_async(
             execute_model,
@@ -121,7 +140,7 @@ if __name__ == "__main__":
     args_parser.add_argument("--output_log_path", type=str, default="SQLite")
     args = args_parser.parse_args()
     exec_result = []
-
+    
     pred_queries, db_paths = package_sqls(
         args.predicted_sql_path,
         args.db_root_path,
@@ -133,6 +152,9 @@ if __name__ == "__main__":
         args.db_root_path,
         mode="gt",
     )
+
+    # Initialize total queries count
+    progress["total_queries"] = len(pred_queries)
 
     query_pairs = list(zip(pred_queries, gt_queries))
 

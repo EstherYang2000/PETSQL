@@ -85,7 +85,6 @@ def get_schema(db):
     for table in tables:
         cursor.execute("PRAGMA table_info({})".format(table))
         schema[table] = [str(col[1].lower()) for col in cursor.fetchall()]
-    print(f"Schema: {schema}")  # Debug print
     return schema
 
 def get_schema_from_json(fpath):
@@ -158,7 +157,6 @@ def tokenize(string):
         if toks[i] in vals:
             toks[i] = vals[toks[i]]
 
-    print(f"Tokenized: {toks}")
     return toks
 
 def scan_alias(toks):
@@ -171,11 +169,9 @@ def scan_alias(toks):
             while j >= 0 and toks[j] in ('(', ')'):
                 j -= 1
             if j >= 0 and toks[j-1].lower() in ('from', 'join'):
-                print(f"Explicit alias: {toks[i+1]} -> {toks[i-1]}")
                 alias[toks[i + 1]] = toks[i - 1]
             # Handle subquery aliases by not assigning a table yet
             elif toks[j] == ')' and j > 0 and toks[j-1].lower() == 'select':
-                print(f"Subquery alias: {toks[i+1]} (no table assigned)")
                 alias[toks[i + 1]] = None  # Subquery alias, no table
             i += 2
             continue
@@ -185,12 +181,10 @@ def scan_alias(toks):
                 toks[i+1].lower() not in ['where', 'group', 'order', 'having', 'limit', 'union', 'intersect', 'except', 'and', 'or', 'join', 'on', 'as', 'using'] and
                 toks[i] != '(' and 
                 toks[i+1].isalnum()):
-                print(f"Implicit alias: {toks[i+1]} -> {toks[i]}")
                 alias[toks[i+1]] = toks[i]
                 i += 2
                 continue
         i += 1
-    print(f"scan_alias result: {alias}")
     return alias
 
 def get_tables_with_alias(schema, toks):
@@ -203,7 +197,6 @@ def get_tables_with_alias(schema, toks):
 
 def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
     tok = toks[start_idx]
-    print(f"Parsing column: '{tok}' at {start_idx}, default_tables: {default_tables}")
 
     if tok.lower() in WHERE_OPS or tok.lower() in CLAUSE_KEYWORDS or tok.lower() in JOIN_KEYWORDS or tok.lower() in COND_OPS:
         raise ValueError(f"Error col: {tok} - token is an operator, not a column")
@@ -216,7 +209,6 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
         if table_or_subquery in schema.schema or table_or_subquery in schema.subquery_schemas:
             return start_idx + 1, f"__{table_or_subquery}.*__"  # Use a special identifier for wildcard
         else:
-            print(f"Warning: Alias '{alias}' not found in tables or subqueries. Using placeholder.")
             return start_idx + 1, f"__{alias}.*__"
 
     if tok == "*":
@@ -229,14 +221,12 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
         if table_or_subquery in schema.subquery_schemas:
             if col_lower in schema.subquery_schemas[table_or_subquery]:
                 return start_idx + 1, f"__{table_or_subquery}.{col_lower}__"
-            print(f"Warning: Column '{col}' not found in subquery '{table_or_subquery}'. Proceeding with placeholder.")
             return start_idx + 1, f"__{table_or_subquery}.{col_lower}__"
         
         key = table_or_subquery + "." + col
         key_lower = key.lower()
         if key_lower in schema.idMap:
             return start_idx + 1, schema.idMap[key_lower]
-        print(f"Warning: Column '{tok}' not found in schema for table '{table_or_subquery}'. Using placeholder identifier.")
         return start_idx + 1, f"__{table_or_subquery}.{col_lower}__"
 
     assert default_tables is not None and len(default_tables) > 0, "Default tables required"
@@ -275,16 +265,13 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
         key_lower = possible_keys[0].lower()
         if key_lower in schema.idMap:
             return start_idx + 1, schema.idMap[key_lower]
-        print(f"Warning: Key '{key_lower}' not in idMap. Using placeholder.")
         return start_idx + 1, f"__{possible_keys[0].lower()}__"
     elif len(possible_keys) > 1:
         chosen_key = possible_keys[0]
-        print(f"Warning: Ambiguous column '{tok}' matches {possible_keys}. Defaulting to '{chosen_key}'")
         key_lower = chosen_key.lower()
         if key_lower in schema.idMap:
             return start_idx + 1, schema.idMap[key_lower]
         return start_idx + 1, f"__{key_lower}__"
-    print(f"Warning: Column '{tok}' not resolved. Assigning placeholder with first default table '{default_tables[0]}'.")
     return start_idx + 1, f"__{tables_with_alias[default_tables[0]]}.{tok_lower}__"
 
 def parse_col_unit(toks, start_idx, tables_with_alias, schema, default_tables=None):
@@ -514,7 +501,6 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
     idx = start_idx
     len_ = len(toks)
     conds = []
-    print(f"Parsing condition at {idx}: {toks[idx:]}")
 
     while idx < len_:
         not_op = False
@@ -699,7 +685,6 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
         if idx < len_ and (toks[idx] in CLAUSE_KEYWORDS or toks[idx] in (")", ";") or toks[idx] in JOIN_KEYWORDS or toks[idx] == "left"):
             break
 
-    print(f"Conditions: {conds}")
     return idx, conds
 
 def parse_select(toks, start_idx, tables_with_alias, schema, default_tables=None):
@@ -792,7 +777,6 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
                         col_name = f'col{i}'
                     subquery_cols.append(col_name)
             schema.add_subquery_schema(alias, subquery_cols)
-            print(f"Subquery schema for {alias}: {subquery_cols}")
         else:
             raise ValueError(f"Expected 'SELECT' after '(' in FROM clause, got {toks[idx]}")
     else:
@@ -855,7 +839,6 @@ def parse_from(toks, start_idx, tables_with_alias, schema):
                                 col_name = f'col{i}'
                             subquery_cols.append(col_name)
                     schema.add_subquery_schema(alias, subquery_cols)
-                    print(f"Subquery schema for {alias}: {subquery_cols}")
                 else:
                     raise ValueError(f"Expected 'SELECT' after '(' in JOIN clause, got {toks[idx]}")
             else:
@@ -1102,13 +1085,10 @@ def load_data(fpath):
     return data
 
 def get_sql(schema, query):
-    print(f"🔍 Parsing SQL for query: {query}")
     toks = tokenize(query)
     tables_with_alias = get_tables_with_alias(schema.schema, toks)
-    print(f"Tables with alias: {tables_with_alias}")
     try:
         _, sql = parse_sql(toks, 0, tables_with_alias, schema)
-        print(sql)
         return sql
     except Exception as e:
         print(f"❌ Error in get_sql: {e}")
@@ -1129,6 +1109,5 @@ if __name__ == "__main__":
     p_str = """SELECT email_address, town_city, county FROM Customers WHERE gender_code = (   SELECT gender_code   FROM Orders   JOIN Customers USING(customer_id)   GROUP BY gender_code   ORDER BY COUNT(*) ASC   LIMIT 1 );"""
     try:
         p_sql = get_sql(schema, p_str)
-        # print("Parsed SQL:", json.dumps(p_sql, indent=2))
     except Exception as e:
         print(f"❌ Error: {e}")

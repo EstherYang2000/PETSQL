@@ -10,37 +10,31 @@ from matplotlib.animation import FuncAnimation
 from IPython.display import HTML
 import argparse
 
-parser = argparse.ArgumentParser(description="Call LLM on prompts and output results.")
-parser.add_argument("--result_dir", type=str, required=True, help="Directory containing the result files.")
-parser.add_argument("--strategy", type=str, required=True, help="Voting strategy used.")
-parser.add_argument("--title", type=str, required=True, help="Subtitle for the plot.")
-parser.add_argument("--number", type=str, required=True, help="Number for the plot.")
+parser = argparse.ArgumentParser(description="Compare voting strategies and plot model weights.")
+parser.add_argument("--wma_dir", type=str, required=True, help="Directory containing WMA results.")
+parser.add_argument("--rwma_dir", type=str, required=True, help="Directory containing RWMA results.")
+parser.add_argument("--naive_dir", type=str, required=True, help="Directory containing Naive results.")
 parser.add_argument("--dataset_type", type=str, required=True, help="Type of dataset used.")
 parser.add_argument("--data_type", type=str, required=True, help="Type of data (Train/Test).")
+parser.add_argument("--output_dir", type=str, default="data/pic", help="Output directory for plots.")
+parser.add_argument("--figure_number", type=str, required=True, help="Figure number for file naming.")
 args = parser.parse_args()
-# === 1) 配置路径与参数，请替换为你的实际值 ===
-result_dir = args.result_dir
-strategy   = args.strategy
-title     = args.title
-subtitle   = f"{title} with {strategy}"
-number     = args.number
-dataset_type =args.dataset_type
+
+# === 1) 配置路径与参数 ===
+strategy_dirs = {
+    'WMA': args.wma_dir,
+    'RWMA': args.rwma_dir,
+    'Naive': args.naive_dir
+}
+dataset_type = args.dataset_type
 data_type = args.data_type
-file_path  = os.path.join(result_dir, "results_1.json")
-# ============================================
+output_dir = args.output_dir
+figure_number = args.figure_number
 
-# === 2) 读取 JSON 并构造 DataFrame ===
-with open(file_path, "r", encoding="utf-8") as f:
-    data = json.load(f)
+# 確保輸出目錄存在
+os.makedirs(output_dir, exist_ok=True)
 
-records = []
-for entry in data:
-    rnd     = entry["index"]
-    weights = entry["current_weights"]
-    for model, w in weights.items():
-        records.append({"Round": rnd, "Model": model, "Weight": w})
-
-df = pd.DataFrame(records)
+# 模型重命名字典
 rename_dict = {
     "gemini": "Gemini-2.5-Pro Experimental",
     "llamaapi_3.3": "Llama-3.3-70B",
@@ -49,46 +43,70 @@ rename_dict = {
     "gpt-4o": "GPT-4o",
     "o3-mini": "o3-mini",
 }
-# === 3) Pivot & 排序，为 hover 排名准备 ===
-df_pivot = df.pivot(index="Round", columns="Model", values="Weight").fillna(0)
-df_pivot.rename(columns=rename_dict, inplace=True)
 
-df_melt  = (
-    df_pivot
-    .reset_index()
-    .melt(id_vars="Round", var_name="Model", value_name="Weight")
-)
-df_melt["Rank"] = df_melt.groupby("Round")["Weight"].rank(ascending=False, method="first")
-df_melt.sort_values(["Round","Weight"], ascending=[True, False], inplace=True)
+# === 2) 讀取所有策略的數據 ===
+all_data = {}
+for strategy, result_dir in strategy_dirs.items():
+    file_path = os.path.join(result_dir, "results_1.json")
+    
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        records = []
+        for entry in data:
+            rnd = entry["index"]
+            weights = entry["current_weights"]
+            for model, w in weights.items():
+                records.append({
+                    "Round": rnd, 
+                    "Model": model, 
+                    "Weight": w, 
+                    "Strategy": strategy
+                })
+        
+        all_data[strategy] = pd.DataFrame(records)
+        print(f"Loaded {strategy}: {len(all_data[strategy])} records from {file_path}")
+    else:
+        print(f"Warning: File not found for strategy {strategy}: {file_path}")
 
-# === 4) 绘图 ===
+# 合併所有策略的數據
+if not all_data:
+    raise ValueError("No valid strategy data found!")
+
+df_combined = pd.concat(all_data.values(), ignore_index=True)
+
+# 重命名模型
+df_combined['Model'] = df_combined['Model'].map(rename_dict).fillna(df_combined['Model'])
+
+# === 3) Plotly 互動式圖表 ===
 fig = px.line(
-    df_melt,
+    df_combined,
     x="Round",
     y="Weight",
     color="Model",
-    markers=False,
-    hover_data={"Model": True, "Weight": ":.4f", "Rank": True},
-    template="plotly_white"
+    line_dash="Strategy",
+    markers=True,
+    hover_data={"Model": True, "Weight": ":.4f", "Strategy": True},
+    template="plotly_white",
+    title=f"Voting Strategy Comparison on {dataset_type} {data_type}"
 )
 
-# 主标题
+# 更新圖表樣式
 fig.update_layout(
     title={
-        "text": f"Voting Strategy Model Weights on Spider 1.0 {data_type}",
+        "text": f"Voting Strategy Comparison on {dataset_type} {data_type}",
         "x": 0.5, "xanchor": "center", "yanchor": "top",
         "font": {"size": 20, "family": "Arial", "color": "black"}
     },
-    # 副标题为 annotation
     annotations=[{
-        "text": subtitle,
+        "text": f"Comparing {', '.join(strategy_dirs.keys())} Strategies",
         "x": 0, "xref": "paper",
         "y": 1.02, "yref": "paper",
         "showarrow": False,
         "align": "left",
         "font": {"size": 14, "family": "Arial", "color": "gray"}
     }],
-    # 图例放右侧且瘦身
     legend={
         "title": "",
         "orientation": "v",
@@ -96,41 +114,15 @@ fig.update_layout(
         "font": {"size": 10},
         "traceorder": "normal"
     },
-    # 留白
-    margin={"l": 60, "r": 200, "t": 140, "b": 60}
+    margin={"l": 60, "r": 250, "t": 140, "b": 60}
 )
 
-# 轴标签与网格
-fig.update_xaxes(title_text="Rounds",
-                 showgrid=True, gridwidth=1, gridcolor="#EEEEEE")
-fig.update_yaxes(title_text="Model Weight",
-                 showgrid=True, gridwidth=1, gridcolor="#EEEEEE")
+fig.update_xaxes(title_text="Rounds", showgrid=True, gridwidth=1, gridcolor="#EEEEEE")
+fig.update_yaxes(title_text="Model Weight", showgrid=True, gridwidth=1, gridcolor="#EEEEEE")
 
 fig.show()
 
-
-
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-
-
-
-# --- 2) 构建 DataFrame ---
-records = []
-for entry in data:
-    idx = entry["index"]
-    for model, w in entry["current_weights"].items():
-        records.append({"round": idx, "model": model, "weight": w})
-df = pd.DataFrame(records)
-
-# Pivot 成每列一个模型
-df_pivot = df.pivot(index="round", columns="model", values="weight").fillna(0)
-df_pivot.rename(columns=rename_dict, inplace=True)
-rounds = df_pivot.index.values
-models = df_pivot.columns.tolist()
-
-# === 3) Matplotlib 论文风格设置 ===
+# === 4) Matplotlib 論文風格圖表 - 子圖比較 ===
 plt.rcParams.update({
     "font.family": "serif",
     "font.serif": ["Times New Roman"],
@@ -143,69 +135,156 @@ plt.rcParams.update({
     "legend.frameon": False,
 })
 
-fig, ax = plt.subplots(figsize=(8, 5), dpi=300)
+# 為每個策略創建子圖
+strategies = list(strategy_dirs.keys())
+n_strategies = len(strategies)
+fig, axes = plt.subplots(1, n_strategies, figsize=(6*n_strategies, 5), dpi=300)
+if n_strategies == 1:
+    axes = [axes]
 
-# 为每个模型画一条折线，使用不同线型/marker
+# 線條樣式和標記
 linestyles = ['-', '--', '-.', ':']
-markers     = ['o', 's', '^', 'd', 'v', '>', '<', 'p', 'h']
-for i, model in enumerate(models):
-    style = linestyles[i % len(linestyles)]
-    m     = markers[i % len(markers)]
-    ax.plot(rounds, df_pivot[model],
-            linestyle=style,
-            marker=m,
-            markevery= max(1, len(rounds)//20),  # 稀疏 marker
-            markersize=4,
-            linewidth=1.2,
-            label=model)
+markers = ['o', 's', '^', 'd', 'v', '>', '<', 'p', 'h']
 
-# 坐标轴与网格
-ax.set_xlabel('Rounds', labelpad=6)
-ax.set_ylabel('Model Weight', labelpad=6)
-# 1) 主標題（Figure 層級），居中，略往上
+for idx, strategy in enumerate(strategies):
+    ax = axes[idx]
+    
+    # 獲取該策略的數據
+    strategy_data = df_combined[df_combined['Strategy'] == strategy]
+    df_pivot = strategy_data.pivot(index="Round", columns="Model", values="Weight").fillna(0)
+    
+    if df_pivot.empty:
+        print(f"Warning: No data found for strategy {strategy}")
+        continue
+        
+    rounds = df_pivot.index.values
+    models = df_pivot.columns.tolist()
+    
+    # 繪製每個模型的折線
+    for i, model in enumerate(models):
+        style = linestyles[i % len(linestyles)]
+        m = markers[i % len(markers)]
+        ax.plot(rounds, df_pivot[model],
+                linestyle=style,
+                marker=m,
+                markevery=max(1, len(rounds)//20),
+                markersize=4,
+                linewidth=1.2,
+                label=model)
+    
+    # 設置坐標軸
+    ax.set_xlabel('Rounds', labelpad=6)
+    if idx == 0:  # 只在第一個子圖顯示 y 軸標籤
+        ax.set_ylabel('Model Weight', labelpad=6)
+    
+    ax.set_title(f'{strategy}', fontsize=14, fontweight='bold', pad=10)
+    
+    # 網格和刻度
+    if len(rounds) > 1:
+        ax.set_xticks(np.linspace(rounds.min(), rounds.max(), min(6, len(rounds)), dtype=int))
+    ax.set_yticks(np.linspace(0, df_pivot.values.max(), 5))
+    ax.grid(which='major', linestyle='-', linewidth=0.6, color='grey', alpha=0.4)
+    ax.grid(which='minor', linestyle=':', linewidth=0.4, color='grey', alpha=0.2)
+    ax.minorticks_on()
+    
+    # 去掉上、右框線
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+# 總標題
 fig.suptitle(
-    f"Voting Strategy Model Weights on Spider 1.0 {data_type}",
+    f"Voting Strategy Model Weights Comparison on {dataset_type} {data_type}",
     fontsize=16,
     fontweight='bold',
-    y=1.02,      # 往上移一點
-    x=0.5,
-    ha='center'
+    y=0.98
 )
 
-# 2) 副標題（Axis 層級），偏左，字體小一點
-ax.set_title(
-    subtitle,  # 你原本的 subtitle 變量
-    fontsize=12,
-    loc='left',
-    pad=8       # 距離上方主區留白
-)# 主次刻度
-ax.set_xticks(np.linspace(rounds.min(), rounds.max(), 6, dtype=int))
-ax.set_yticks(np.linspace(0, df_pivot.values.max(), 5))
-ax.grid(which='major', linestyle='-',  linewidth=0.6, color='grey', alpha=0.4)
-ax.grid(which='minor', linestyle=':',  linewidth=0.4, color='grey', alpha=0.2)
-ax.minorticks_on()
+# 統一圖例（放在右側）
+if len(axes) > 0:
+    handles, labels = axes[0].get_legend_handles_labels()
+    if handles:  # 確保有圖例內容
+        fig.legend(handles, labels,
+                   loc='center left',
+                   bbox_to_anchor=(1.0, 0.5),
+                   fontsize=9,
+                   handlelength=1.8,
+                   labelspacing=0.3)
 
-# 去掉上、右框线
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
+plt.tight_layout()
+plt.subplots_adjust(right=0.85)
 
-# 留出右侧 10% 空间给图例
-fig.subplots_adjust(right=0.95)
-
-# legend 依然外置
-leg = ax.legend(
-    loc='upper left',
-    bbox_to_anchor=(1.00, 1.00),
-    fontsize=8,
-    handlelength=1.8,
-    labelspacing=0.2
-)
-
-plt.savefig(f'data/pic/model_weights_{dataset_type}_{number}.png', dpi=300, bbox_inches='tight')
+# 保存子圖比較
+subplot_filename = os.path.join(output_dir, f'model_weights_comparison_{figure_number}.png')
+plt.savefig(subplot_filename, dpi=300, bbox_inches='tight')
+print(f"Saved subplot comparison: {subplot_filename}")
 plt.show()
 
+# === 5) Matplotlib 單一圖表顯示所有策略 ===
+fig_single, ax_single = plt.subplots(figsize=(12, 8), dpi=300)
+
+strategy_colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown']
+strategy_linestyles = ['-', '--', '-.']
+
+for s_idx, strategy in enumerate(strategies):
+    strategy_data = df_combined[df_combined['Strategy'] == strategy]
+    df_pivot = strategy_data.pivot(index="Round", columns="Model", values="Weight").fillna(0)
+    
+    if df_pivot.empty:
+        continue
+        
+    rounds = df_pivot.index.values
+    models = df_pivot.columns.tolist()
+    
+    base_color = strategy_colors[s_idx % len(strategy_colors)]
+    base_linestyle = strategy_linestyles[s_idx % len(strategy_linestyles)]
+    
+    for i, model in enumerate(models):
+        alpha = 0.7 + 0.3 * (i / max(1, len(models)-1))  # 不同模型用不同透明度
+        ax_single.plot(rounds, df_pivot[model],
+                      linestyle=base_linestyle,
+                      color=base_color,
+                      alpha=alpha,
+                      linewidth=1.5,
+                      label=f'{model} ({strategy})')
+
+ax_single.set_xlabel('Rounds', labelpad=6)
+ax_single.set_ylabel('Model Weight', labelpad=6)
+ax_single.set_title(
+    f"All Strategies Comparison on {dataset_type} {data_type}",
+    fontsize=16,
+    fontweight='bold',
+    pad=15
+)
+
+ax_single.grid(which='major', linestyle='-', linewidth=0.6, color='grey', alpha=0.4)
+ax_single.spines['top'].set_visible(False)
+ax_single.spines['right'].set_visible(False)
+
+# 圖例放在右側，分列顯示
+ax_single.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
+
+plt.tight_layout()
+
+# # 保存單一圖表
+# single_filename = os.path.join(output_dir, f'model_weights_all_strategies_{figure_number}.png')
+# plt.savefig(single_filename, dpi=300, bbox_inches='tight')
+# print(f"Saved single chart: {single_filename}")
+# plt.show()
+
+print(f"\nAll charts saved to: {output_dir}")
+print(f"Files created:")
+print(f"- model_weights_comparison_{figure_number}.png")
+print(f"- model_weights_all_strategies_{figure_number}.png")
 
 
+"""
+python src/sources/wma/weight_plotting.py \
+--wma_dir bird/process/vote/PPL_DEV_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_wma_6 \
+--rwma_dir bird/process/vote/PPL_DEV_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_rwma_6 \
+--naive_dir bird/process/vote/PPL_DEV_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_naive_6 \
+--dataset_type "BIRD" \
+--data_type "Dev" \
+--output_dir "data/pic/bird_dev/6/1_baseline" \
+--figure_number "1"
 
-
-
+"""

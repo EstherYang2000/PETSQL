@@ -54,7 +54,7 @@ python src/sources/post_process.py \
 
 python src/sources/evaluation.py \
     --gold ./data/spider/dev_gold.sql  \
-    --pred data/vote/rl/PPL_DEV.JSON-9_SHOT_Euclidean_mask_1034_base_rl/final_sql_rl.txt \
+    --pred data/process/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_wma/final_sql_1_googlegeminiapi_gemini-2.5-pro-exp-03-25_cc.txt\
     --etype all \
     --db ./data/spider/database \
     --table ./data/spider/tables.json \

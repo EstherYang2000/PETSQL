@@ -64,6 +64,10 @@ def ppo_train(env, policy, value, device,
 
     obs = env.reset().to(device)
     stor = []  # (obs, act, rew, logp, val, done)
+    all_rewards = []
+    all_entropies = []
+    all_actions = []
+    n_experts = policy.fc[-1].out_features if hasattr(policy, 'fc') else None
 
     while global_step < steps:
         logits = policy(obs.unsqueeze(0))
@@ -80,11 +84,26 @@ def ppo_train(env, policy, value, device,
         stor.append((obs.cpu(), act.item(), rew.cpu(),
                      logp.item(), val.item(), done))
 
+        # logging for debug
+        all_rewards.append(rew.item())
+        all_entropies.append(dist.entropy().item())
+        all_actions.append(act.item())
+        if global_step % 100 == 0 and global_step > 0:
+            avg_reward = np.mean(all_rewards[-100:])
+            avg_entropy = np.mean(all_entropies[-100:])
+            if n_experts is None:
+                n_experts = logits.size(-1)
+            act_hist = np.bincount(all_actions[-100:], minlength=n_experts)
+            act_hist = act_hist / np.sum(act_hist)
+            print(f"Step {global_step}: avg_reward={avg_reward:.3f}, avg_entropy={avg_entropy:.3f}, action_dist={act_hist}", flush=True)
+            pbar.set_description(f"Collecting | avg_r={avg_reward:.2f} | ent={avg_entropy:.2f}")
+
         obs = env.reset().to(device) if done else nxt_obs.to(device)
         global_step += 1
         pbar.update(1)
 
     pbar.close()
+
 
     # -------- GAE --------
     obs_t, act_t, rew_t, logp_t, val_t, done_t = zip(*stor)

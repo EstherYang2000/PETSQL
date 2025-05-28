@@ -256,19 +256,19 @@ python src/sources/wma/cc_bird.py \
 
     
 python src/sources/bird_evaluation/process_sql.py \
-    --file bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_rf_wma/final_result_1.json \
-    --output bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_rf_wma/final_result_1_output_eval.json \
+    --file bird/process/bird/PPL_DEV_BIRD.JSON-9_SHOT_Euclidean_mask_1534_rf/final_result_1_llamaapi_3.3_cc.json \
+    --output bird/process/bird/PPL_DEV_BIRD.JSON-9_SHOT_Euclidean_mask_1534_rf/final_result_1_llamaapi_3.3_cc_output_eval.json \
     --type rf
 
 python src/sources/bird_evaluation/evaluation.py \
-    --predicted_sql_path bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_rwma/final_result_1_output_eval.json \
+    --predicted_sql_path bird/process/bird/PPL_DEV_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/googlegeminiapi_gemini-2.5-pro-exp-03-25_output_eval.json \
     --ground_truth_path bird/bird/dev.sql \
     --db_root_path bird/bird/database/ \
     --num_cpus 4 \
     --meta_time_out 30 \
     --diff_json_path bird/bird/dev.json \
     --sql_dialect SQLite \
-    --output_log_path bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_rwma//evaluation_log.txt    
+    --output_log_path bird/process/bird/PPL_DEV_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/evaluation_log_googlegeminiapi_gemini-2.5-pro-exp-03-25.txt    
     
     
     

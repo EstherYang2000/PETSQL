@@ -4,7 +4,7 @@ from itertools import zip_longest
 from wma import WeightedMajorityAlgorithm,auto_select_epsilon
 from utils.file_utils import load_prompts, append_json,write_txt
 from bird_evaluation.evaluation_utils import load_json,execute_sql
-from bird_evaluation.evaluation import calculate_ex
+from bird_evaluation.evaluation import execute_model
 from sql_gen.sql_utils import run_sql_generation, run_refinement_pipeline
 import argparse
 import sys
@@ -16,15 +16,15 @@ def apply_schema_linking(sql_output_file, output_sl_file):
 def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num_prompts, dataset_type, n_samples, refinement,round=1,strategy="wma", auto_epsilon=False):
     
     expert_list = []
-    expert_list.append({"name": "llamaapi_3.3", "model": "llamaapi", "version": "3.3","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/llamaapi_3.3_output.txt"})
-    expert_list.append({"name": "gpt-4o", "model": "gptapi", "version": "chatgpt-4o-latest","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/gptapi_chatgpt-4o-latest_output.txt"})
-    expert_list.append({"name": "gpt-4.1-2025-04-14", "model": "gptapi", "version": "gpt-4.1-2025-04-14","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/gptapi_gpt-4.1-2025-04-14_output.txt"})
-    expert_list.append({"name": "o3-mini", "model": "gptapi", "version": "o3-mini","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/gptapi_o3-mini_output.txt"})
-    expert_list.append({"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/qwen_api_32b-instruct-fp16_output.txt"})
-    expert_list.append({"name": "qwen_api_2_5_72b", "model": "qwen_api", "version": "2_5_72b","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/qwen_api_2_5_72b_output.txt"})
-    expert_list.append({"name": "gemini", "model": "googlegeminiapi", "version": "gemini-2.5-pro-exp-03-25","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/googlegeminiapi_gemini-2.5-pro-exp-03-25_output.txt"})
-    expert_list.append({"name": "grok3", "model": "grokapi", "version": "grok-3-beta","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/grokapi_grok-3-beta_output.txt"})
-        # 計算 epsilon
+    expert_list.append({"name": "llamaapi_3.3", "model": "llamaapi", "version": "3.3","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/llamaapi_3.3_output_eval.json"})
+    expert_list.append({"name": "gpt-4o", "model": "gptapi", "version": "chatgpt-4o-latest","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/gptapi_chatgpt-4o-latest_output_eval.json"})
+    # expert_list.append({"name": "gpt-4.1-2025-04-14", "model": "gptapi", "version": "gpt-4.1-2025-04-14","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/gptapi_gpt-4.1-2025-04-14_output_eval.json"})
+    expert_list.append({"name": "o3-mini", "model": "gptapi", "version": "o3-mini","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/gptapi_o3-mini_output_eval.json"})
+    expert_list.append({"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/qwen_api_32b-instruct-fp16_output_eval.json"})
+    expert_list.append({"name": "qwen_api_2_5_72b", "model": "qwen_api", "version": "2_5_72b","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/qwen_api_2_5_72b_output_eval.json"})
+    expert_list.append({"name": "gemini", "model": "googlegeminiapi", "version": "gemini-2.5-pro-exp-03-25","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/googlegeminiapi_gemini-2.5-pro-exp-03-25_output_eval.json"})
+    # expert_list.append({"name": "grok3", "model": "grokapi", "version": "grok-3-beta","path":"bird/process/bird/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base/grokapi_grok-3-beta_output_eval.json"})
+          # 計算 epsilon
     if auto_epsilon:
         epsilon = auto_select_epsilon(len(expert_list), end_num_prompts - start_num_prompts)
         print(f"[auto_epsilon] epsilon selected: {epsilon:.6f}")
@@ -34,8 +34,13 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
     wma = WeightedMajorityAlgorithm(epsilon=epsilon)
     for expert in expert_list:
         path = expert['path']
-        with open(path) as f:
-            raw_sql_outputs = [l.strip().split('\t') for l in f.readlines() if len(l.strip()) > 0]
+        sql_data = json.load(
+            open(
+                path,
+                "r",
+            )
+        )
+        raw_sql_outputs = list(sql_data.values())
         expert['raw_sql_outputs'] = raw_sql_outputs
         print(f"Expert: {expert['name']}, Number of raw SQL outputs: {len(raw_sql_outputs)}")
         # Assert that the number of raw SQL outputs matches the expected number (1534)
@@ -44,6 +49,10 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
             sys.exit("Stopping program due to mismatched raw SQL outputs.")        
     for expert in expert_list:
         wma.add_expert(expert["name"], init_weight=1.0)
+    
+    # 重置錯誤計數器
+    wma.reset_mistake_counts()
+    
     results, final_results = [], []
 
     for index, sample in enumerate(input_data):
@@ -55,20 +64,9 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
         for expert in expert_list:
             raw_sql_output = [{
                 "prompt_index":  index,
-                "sql_candidates": expert['raw_sql_outputs'][index]
+                "sql_candidates": [expert['raw_sql_outputs'][index]]
                     
                 }]
-            # raw_sql_output = run_sql_generation(
-            #     model=expert["model"],
-            #     prompts=[sample['prompt']],
-            #     path_generate=path_generate,
-            #     out_file=f"{expert['model']}_{expert['version']}_cc.json",
-            #     end_num_prompts=end_num_prompts,
-            #     call_mode="append",
-            #     model_version=expert['version'],
-            #     n_samples=n_samples,
-            #     question_index=start_num_prompts + index
-            # )
 
             if refinement:
                 refined_candidates = run_refinement_pipeline(
@@ -93,36 +91,43 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
             diff_json_path = "./bird/bird/dev.json" if dataset_type == "dev" else "./bird/bird/test.json"
             diff_contents = load_json(diff_json_path)
             
-            for expert, sql_list in predictions.items():
-                is_correct_any = False  # reset for each expert
-                for idx, candidate_sql in enumerate(sql_list):
-                    db_info = diff_contents[idx]  # 假設idx對應題目
-                    sql_dialect = "SQLite"  # SQLite, MySQL, PostgreSQL
-                    # db_name = db_info["db_id"]
-                    # true_gold = db_info["query"]
+            for expert, pred_sql in predictions.items():
+                is_correct = False  # reset for each expert
+                try:
+                    db_info = diff_contents[index]
+                    sql_dialect = "SQLite"
                     if sql_dialect == "SQLite":
                         db_path = f"./bird/bird/database/{db_name}/{db_name}.sqlite"
                     else:
-                        db_path = None  # MySQL與PostgreSQL會透過連線函數連線，無需路徑
+                        db_path = None
                     
-                    # 使用 execute_sql 並傳入 calculate_ex 評估結果
-                    res = execute_sql(
-                        candidate_sql,
+                    result = execute_model(
+                        pred_sql,
                         gold_sql,
                         db_path,
-                        sql_dialect,
-                        calculate_ex
-                    )
+                        index,
+                        3000.0,
+                        sql_dialect    
+                    )['res']
+                    # 更嚴格的結果判斷
+                    is_correct = result
+                except Exception as e:
+                    print(f"Error executing SQL for expert {expert}: {e}")
+                    is_correct = False
 
-                    if res == 1:
-                        is_correct_any = True
-                        break  # 只要任一SQL候選通過即視為正確
+                # 根據策略更新權重和錯誤計數
+                if strategy == "wma" or strategy == "rwma":
+                    wma.update_weights(expert, is_correct, strategy=strategy)
+                elif strategy == "naive":
+                    # 只記錄錯誤，不更新權重
+                    if not is_correct:
+                        wma.update_mistake_count(expert)
 
-                wma.update_weights(expert, is_correct_any, strategy=strategy)
+        # 在每次迭代結束後獲取最新的錯誤數
+        current_mistakes = wma.get_mistake_counts()
+        best_expert_name, best_mistake_count = min(current_mistakes.items(), key=lambda x: x[1])
+
         if auto_epsilon and index > 0:
-            mistake_counts = wma.get_mistake_counts()
-            best_expert_name, best_mistake_count = min(mistake_counts.items(), key=lambda x: x[1])
-
             print(f"[Round {index}] epsilon updated to {epsilon:.6f} using best_expert: {best_expert_name} (mistakes: {best_mistake_count})")
         else:
             best_expert_name, best_mistake_count = "-", 0
@@ -134,13 +139,12 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
             "gold_sql": gold_sql,
             "final_sql": final_sql,
             "chosen_experts": chosen_experts,
-            "is_correct": is_correct_any,
+            "is_correct": is_correct,
             "current_weights": wma.get_weights(),
             "current_epsilon": epsilon,
-            "currenrt_mistakes": wma.get_mistake_counts(),
+            "current_mistakes": current_mistakes,
             "best_expert": best_expert_name,
             "best_expert_mistakes": best_mistake_count
-            
         })
         final_results.append({
             "index": index + start_num_prompts,
@@ -148,7 +152,7 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
             "chosen_expert": chosen_experts,
             "best_weight": best_weight,
             "current_epsilon": epsilon,
-            "currenrt_mistakes": wma.get_mistake_counts(),
+            "current_mistakes": current_mistakes,
             "best_expert": best_expert_name,
             "best_expert_mistakes": best_mistake_count
         })
@@ -219,7 +223,7 @@ if __name__ == "__main__":
 
     """
     python src/sources/wma/cc_gpt_bird.py \
-        --path_generate bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_rwma\
+        --path_generate bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_naive_6\
         --gold bird/bird/dev.sql \
         --start_num_prompts 0 \
         --end_num_prompts 1534 \
@@ -227,27 +231,27 @@ if __name__ == "__main__":
         --dataset_type dev \
         --call_mode append \
         --rounds 1 \
-        --strategy rwma \
+        --strategy naive \
         --auto_epsilon            
 
 python src/sources/bird_evaluation/process_sql.py \
-    --file bird/process/vote/PPL_DEV_BIRD.JSON-9_SHOT_Euclidean_mask_1534_rf_naive/final_result_1.json \
-    --output bird/process/vote/PPL_DEV_BIRD.JSON-9_SHOT_Euclidean_mask_1534_rf_naive/final_result_output_eval.json \
+    --file bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_rf_rwma_8/final_result_1.json \
+    --output bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_rf_rwma_8/final_result_output_eval.json \
     --type rf
 
 python src/sources/bird_evaluation/evaluation.py \
-    --predicted_sql_path bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_rf_wma/final_result_1_output_eval.json \
+    --predicted_sql_path bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_naive_8/final_result_output_eval.json\
     --ground_truth_path bird/bird/dev.sql \
     --db_root_path bird/bird/database/ \
     --num_cpus 4 \
-    --meta_time_out 30 \
+    --meta_time_out 3000 \
     --diff_json_path bird/bird/dev.json \
     --sql_dialect SQLite \
-    --output_log_path bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_rf_wma/evaluation_log.txt    
+    --output_log_path bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_naive_8/evaluation_log.txt    
     
-    
-    
-    
+    conda deactivate
+    source venv/bin/activate
+    export PYTHONPATH=src/sources
     
     
     
