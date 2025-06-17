@@ -178,10 +178,10 @@ class WeightedMajorityAlgorithm:
         final_sql = predictions_dict[selected_expert]
         if not final_sql:
             logger.warning(f"Selected expert {selected_expert} has no predictions.")
-            return None, [], 0.0
+            return None, [], 0.0, probs
         # final_sql = random.choice(sql_list)
 
-        return final_sql, [selected_expert], self.experts[selected_expert]
+        return final_sql, [selected_expert], self.experts[selected_expert],probs
     
     def get_weights(self):
         """

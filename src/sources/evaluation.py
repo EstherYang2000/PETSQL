@@ -621,7 +621,7 @@ def evaluate(gold, predict, db_dir, etype, kmaps,nums=1034):
                         2.0 * scores[level]['partial'][type_]['acc'] * scores[level]['partial'][type_]['rec'] / (
                         scores[level]['partial'][type_]['rec'] + scores[level]['partial'][type_]['acc'])
 
-    with open("data/vote/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/current_error.json", "w") as f:
+    with open("data/vote/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_rwma/current_error.json", "w") as f:
         json.dump(result, f)
     print_scores(scores, etype)
     

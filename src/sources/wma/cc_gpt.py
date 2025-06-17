@@ -13,15 +13,15 @@ def apply_schema_linking(sql_output_file, output_sl_file):
 
 def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num_prompts, dataset_type, n_samples, refinement,round=1,strategy="wma", auto_epsilon=False):
     expert_list = [
-        {"name": "llamaapi_3.3", "model": "llamaapi", "version": "3.3","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1_llamaapi_3.3_cc.txt"},
+        {"name": "llamaapi_3.3", "model": "llamaapi", "version": "3.3","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_rwma/final_sql_1_llamaapi_3.3_cc.txt"},
         # {"name": "gpt-4", "model": "gptapi", "version": "gpt-4"},
-        {"name": "gpt-4o", "model": "gptapi", "version": "gpt-4o","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1_gptapi_chatgpt-4o-latest_cc.txt"},
+        {"name": "gpt-4o", "model": "gptapi", "version": "gpt-4o","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_rwma/final_sql_1_gptapi_chatgpt-4o-latest_cc.txt"},
         # {"name": "o1-preview", "model": "gptapi", "version": "o1-preview"},
-        {"name": "o3-mini", "model": "gptapi", "version": "o3-mini","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1_gptapi_o3-mini_cc.txt"},
-        {"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1_qwen_api_32b-instruct-fp16_cc.txt"},
+        {"name": "o3-mini", "model": "gptapi", "version": "o3-mini","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_rwma/final_sql_1_gptapi_o3-mini_cc.txt"},
+        {"name": "qwen_api_32b-instruct-fp16", "model": "qwen_api", "version": "32b-instruct-fp16","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_rwma/final_sql_1_qwen_api_32b-instruct-fp16_cc.txt"},
         # {"name": "mistralapi_small_24b", "model": "mistralapi", "version": "small_24b"},
-        {"name": "qwen_api_2_5_72b", "model": "qwen_api", "version": "2_5_72b","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1_qwen_api_2_5_72b_cc.txt"},
-        {"name": "gemini", "model": "googlegeminiapi", "version": "gemini-2.5-pro-exp-03-25","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive/final_sql_1_googlegeminiapi_gemini-2.5-pro-exp-03-25_cc.txt"},
+        {"name": "qwen_api_2_5_72b", "model": "qwen_api", "version": "2_5_72b","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_rwma/final_sql_1_qwen_api_2_5_72b_cc.txt"},
+        {"name": "gemini", "model": "googlegeminiapi", "version": "gemini-2.5-pro-exp-03-25","path":"data/process/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_rwma/final_sql_1_googlegeminiapi_gemini-2.5-pro-exp-03-25_cc.txt"},
 
     ]
     # 計算 epsilon
@@ -42,6 +42,7 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
         wma.add_expert(expert["name"], init_weight=1.0)
 
     results, final_results = [], []
+    expected_error_rates = []  # 用於儲存每輪的預期錯誤率
 
     for index, sample in enumerate(input_data):
         predictions = {}
@@ -75,10 +76,15 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
                 
         # STEP 1: 先根據目前權重做加權投票（預測）
         if strategy == "rwma":
-            final_sql, chosen_experts, best_weight = wma.randomized_weighted_majority_vote(predictions)
+            final_sql, chosen_experts, best_weight, expert_probabilities = wma.randomized_weighted_majority_vote(predictions)
+            # Calculate expected error rate after voting is done
+            expected_error_rate = 0.0
+            for expert in predictions:
+                historical_error_rate = wma.get_mistake_counts().get(expert, 0) / index if index > 0 else 0.0
+                expected_error_rate += expert_probabilities[expert] * historical_error_rate
         else:
             final_sql, chosen_experts, best_weight = wma.weighted_majority_vote(predictions)
-            
+            expert_probabilities = {}
         gold_sql = sample.get("gold_sql")
         
         if gold_sql:
@@ -90,7 +96,7 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
                 is_correct_any = False
                 if evaluate_cc(gold_sql, [candidate_sql], db, "all", kmaps):
                     is_correct_any = True
-                if strategy != "rl" and strategy != "naive":
+                if strategy != "rl":
                     wma.update_weights(expert, is_correct_any,strategy=strategy)
                 else:
                     pass
@@ -112,7 +118,9 @@ def run_sql_generation_wma(input_data, path_generate, start_num_prompts, end_num
             "is_correct": is_correct_any,
             "current_weights": wma.get_weights(),
             "current_epsilon": epsilon,
+            "expert_probabilities": expert_probabilities , # 新增專家期望值
             "currenrt_mistakes": wma.get_mistake_counts(),
+            "expected_error_rate": expected_error_rate,
             "best_expert": best_expert_name,
             "best_expert_mistakes": best_mistake_count
             
@@ -188,7 +196,7 @@ if __name__ == "__main__":
 
     """
     python src/sources/wma/cc_gpt.py \
-    --path_generate data/vote/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive_6 \
+    --path_generate data/vote/202504/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_rwma \
     --gold ./data/spider/dev_gold.sql \
     --start_num_prompts 0 \
     --end_num_prompts 1034 \
@@ -196,12 +204,12 @@ if __name__ == "__main__":
     --dataset_type dev \
     --call_mode append \
     --rounds 1 \
-    --strategy naive \
+    --strategy rwma \
     --auto_epsilon
     
     python src/sources/evaluation.py \
      --gold ./data/spider/dev_gold.sql  \
-     --pred data/vote/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive_6/final_sql_1.txt\
+     --pred data/vote/202504/PPL_DEV_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_rwma/final_sql_1.txt\
      --etype all \
      --db ./data/spider/database \
      --table ./data/spider/tables.json \
@@ -210,7 +218,7 @@ if __name__ == "__main__":
      
      
     python src/sources/wma/cc_gpt.py \
-    --path_generate data/vote/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_naive\
+    --path_generate data/vote/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_rwma\
     --gold ./data/spider/test_gold.sql \
     --start_num_prompts 0 \
     --end_num_prompts 1034 \
@@ -218,12 +226,12 @@ if __name__ == "__main__":
     --dataset_type test \
     --call_mode append \
     --rounds 1 \
-    --strategy naive \
+    --strategy rwma \
     --auto_epsilon
     
     python src/sources/evaluation.py \
      --gold ./data/spider/test_gold.sql  \
-     --pred data/vote/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_wma/final_sql_1.txt\
+     --pred data/vote/PPL_TEST_ADD_SL.JSON-9_SHOT_Euclidean_mask_1034_rf_rwma/final_sql_1.txt\
      --etype all \
      --db ./data/spider/test_database \
      --table ./data/spider/test_tables.json \

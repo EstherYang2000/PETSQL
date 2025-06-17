@@ -279,12 +279,12 @@ print(f"- model_weights_all_strategies_{figure_number}.png")
 
 """
 python src/sources/wma/weight_plotting.py \
---wma_dir bird/process/vote/PPL_DEV_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_wma_6 \
---rwma_dir bird/process/vote/PPL_DEV_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_rwma_6 \
---naive_dir bird/process/vote/PPL_DEV_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_naive_6 \
+--wma_dir bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_wma_6 \
+--rwma_dir bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_rwma_6 \
+--naive_dir bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_naive_6 \
 --dataset_type "BIRD" \
 --data_type "Dev" \
---output_dir "data/pic/bird_dev/6/1_baseline" \
---figure_number "1"
+--output_dir "pic/bird_dev/6/2_baseline_sl" \
+--figure_number "2"
 
 """

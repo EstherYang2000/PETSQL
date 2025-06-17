@@ -31,7 +31,7 @@ def result_callback(result):
             
         progress["error_counts"].append({str(current_round-1): progress["total_errors"]})
         
-        path = "bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_naive_8"
+        path = "bird/process/vote/PPL_DEV_ADD_SL_BIRD.JSON-9_SHOT_Euclidean_mask_1534_base_rf_rwma_6"
         with open(f"{path}/current_error.json", "w") as f:
             json.dump(progress["error_counts"], f, indent=2)
 
